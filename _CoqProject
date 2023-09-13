@@ -1,0 +1,3 @@
+smc_scalar_product.v
+
+-R ../seplog seplog
