@@ -35,14 +35,19 @@ Definition scalar_product (Xa Ra ra Xb Rb rb yb: int 16): (int 16 * int 16) :=
 	let ya := scalar_product_alice_fin X'b Ra ra t in
 	(scalar_product_alice_fin X'b Ra ra t, scalar_product_bob_step_fin yb).
 
+(* An actual test case from Golang implementation:
+
+https://github.com/weng-chenghui/smc-golang/blob/66c6a659e5c07eade247c615a3b65d7cefbce0bf/pkg/scalarproduct/scalar_product_test.go#L40-L52
+
+*)
 Definition demo_Alice3_Bob2 : (int 16 * int 16) :=
-	let Ra := `( 199 )c_16 in
-	let Rb := `( 299 )c_16 in
-	let ra := `( 19 )c_16 in
-	let rb := `( 29 )c_16 in
+	let Ra := `( 9 )c_16 in
+	let Rb := `( 8 )c_16 in
+	let ra := `( 13 )c_16 in
+	let rb := `( -12 )c_16 in	(* rb =  Ra . Rb - ra *)
 	let Xa := `( 3 )c_16 in
 	let Xb := `( 2 )c_16 in
-	let yb := `( 39 )c_16 in
+	let yb := `( 2 )c_16 in
 	scalar_product Xa Ra ra Xb Rb rb yb.
 
 
