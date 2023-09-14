@@ -16,4 +16,4 @@ coqdep_warning.txt
 doc/*.html
 *.vok
 *.vos
-memo.v
+memo*.v
