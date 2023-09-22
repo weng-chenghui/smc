@@ -1,10 +1,6 @@
-From mathcomp Require Import ssreflect eqtype ssrbool ssrnat seq.
+From mathcomp Require Import ssreflect eqtype ssrbool ssrnat seq tuple.
 Require Import ssrZ ZArith_ext uniq_tac ssrnat_ext.
-Require Import List.
-Require Import Coq.Lists.List.
-Import ListNotations.
-
-Local Open Scope list_scope.
+	
 
 (* Because I'm not sure which vector lib I should use,
    and because of all time I tried and spent on debugging dependant types:
@@ -15,8 +11,8 @@ Local Open Scope list_scope.
 *)
 Fixpoint zipWith {A B: Type} (fn : A -> A -> B) (l1 : list A) (l2 : list A) : list B :=
 	match l1, l2 with
-	| [], _ => []
-	| _, [] => []
+	| [::], _ => [::]
+	| _, [::] => [::]
 	| a1 :: tl1, a2 :: tl2 => fn a1 a2 :: (zipWith fn tl1 tl2)
 	end.
 
@@ -28,7 +24,7 @@ Fixpoint nth_element {A : Type} (n : nat) (l : list A) : option A :=
 	end.
 
 Definition dotproduct (la lb: list Z) : Z :=
-	fold_left (fun sum current => sum + current) (zipWith (fun a b => a * b) la lb) 0.
+	foldl (fun sum current => sum + current) 0 (zipWith (fun a b => a * b) la lb).
 
 Definition add (la lb: list Z) : list Z :=
 	zipWith (fun a b => a + b) la lb.
@@ -39,7 +35,7 @@ Notation "la '`*' lb" := (dotproduct la lb).
 Reserved Notation "la '`+' lb" (at level 40, format "'[' la  `+  lb ']'").
 Notation "la '`+' lb" := (add la lb).
 
-Eval compute in (([1;2] `+ [1;2;3]) `* [-1;-2]).
+Eval compute in (([::1;2] `+ [::1;2;3]) `* [::-1;-2]).
 
 (* ---- SMC Scalar-product ---- *)
 
@@ -69,7 +65,7 @@ Definition scalar_product_commidity_rb (Ra Rb: list Z) (ra: Z): Z :=
 	(Ra `* Rb) - ra.
 
 
-Definition scalar_product (Xa Xb Ra Rb: list Z) (ra rb yb: Z): (Z * Z) :=
+Definition scalar_product (Ra Rb: list Z) (ra rb yb: Z) (Xa Xb: list Z): (Z * Z) :=
 	let X'a := scalar_product_alice_step1 Xa Ra in
 	let X'b := scalar_prduct_bob_step1 Xb Rb in
 	let t := scalar_prduct_bob_step2 Xb X'a rb yb in
@@ -78,20 +74,21 @@ Definition scalar_product (Xa Xb Ra Rb: list Z) (ra rb yb: Z): (Z * Z) :=
 
 
 Definition demo_Alice3_Bob2 : (Z * Z) :=
-	let Ra := [ 9 ] in
-	let Rb := [ 8 ] in
+	let Ra := [:: 9 ] in
+	let Rb := [:: 8 ] in
 	let ra := 13 in
 	let rb := scalar_product_commidity_rb Ra Rb ra in	(* rb =  Ra . Rb - ra *)
-	let Xa := [ 3 ] in
-	let Xb := [ 2 ] in
+	let Xa := [:: 3 ] in
+	let Xb := [:: 2 ] in
 	let yb := 66 in
-	scalar_product Xa Xb Ra Rb ra rb yb.
+	scalar_product Ra Rb ra rb yb Xa Xb.
 
 (* Scalar-product: (Xa1....Xan, Xb1...Xbn) |-> (ya, yb), where
 
 	ya + yb = Xa * Xb
 
 *)
+
 Lemma demo_is_correct: fst demo_Alice3_Bob2 + snd demo_Alice3_Bob2 = 3 * 2.
 Proof.
 	compute.
@@ -109,7 +106,7 @@ Definition SMC := list Z -> list Z -> (Z * Z).
 *)
 Definition commodity (Ra Rb: list Z) (ra yb: Z): SMC :=
 	let rb := scalar_product_commidity_rb Ra Rb ra in
-	fun Xa Xb => scalar_product Xa Xb Ra Rb ra rb yb.
+	scalar_product Ra Rb ra rb yb.
 
 (* In most of protocols, there are more than one scalar-product,
    therefore more than one commodity is necessary.
@@ -121,7 +118,7 @@ Fixpoint commodities (Ras Rbs: list (list Z)) (ras ybs: list Z): list SMC :=
 	match Ras, Rbs, ras, ybs with
 	| Ra :: tlRas, Rb :: tlRbs, ra :: tlras, yb :: tlybs =>
 		commodity Ra Rb ra yb :: commodities tlRas tlRbs tlras tlybs
-	| _, _, _, _ => []
+	| _, _, _, _ => [::]
 	end.
 
 (* Note before implementation of other protocols:
@@ -181,24 +178,45 @@ Fixpoint zn_to_z2 : (sps: list SMC): SMC :
 
 *)
 
-(* The finally local step to generate one's result. *)
-Definition ti_to_yi' (ci xi xi' ti : Z) : Z :=
-	let ci' := (ci * xi + ti) mod 2 in
-	(xi' + ci') mod 2.
+(* Step 2 for two party. *)
+Definition zn_to_z2_step2 (sp: SMC) (cai cbi xai xbi xai' xbi': Z) : (Z * Z * Z *Z) :=
+	let tai_tbi := sp [:: cai; xai; xai] [:: xbi; cbi; xbi] in
+	let tai := fst tai_tbi in
+	let tbi := snd tai_tbi in
+	let cai' := (cai * xai + tai) mod 2 in
+	let cbi' := (cbi * xbi + tbi) mod 2 in
+	let yai' := (xai' + cai') mod 2 in
+	let ybi' := (xbi' + cbi') mod 2 in
+	(cai', cbi', yai', ybi').
 
-Definition zn_to_z2_tai_tbi (sp: SMC) (cai cbi xai xbi : Z) : (Z * Z) :=
-	let results := sp [cai; xai; xai] [xbi; cbi; xbi] in
-	((fst results) mod 2, (snd results) mod 2).
+(* TODO:  *)
 
-(* TODO: in this step, there is a local computation uses `ti_to_yi'` after `zn_to_z2_tai_tbi`,
-   I haven't find a more readable way to plug that step into this function.
-*)
+Eval compute in (pairmap (fun prev curr => (curr, prev)) 0 [:: 4; 3; 2; 1]).
+
+(* Note: cannot put x0a and x0b in lists because they need to be the init vars specified in params. *)
+Definition zn_to_z2  (sps: list SMC) (x0a x0b: Z) (xas xbs: list Z): (list (Z * Z * Z * Z)) :=
+	(* since each step 2 requires xi and xi', we need to make the list [xi] to [(xi', xi)] first *)
+	(* rev because 5 = [:: x2=1; x1=0; x0=1];
+	   and xs without x0 is [:: x2=1; x1=0];
+	   and we need [:: (x2, x1); (x1, x0)];
+	   while the natural order of `pairmap := [:: f a x_1; f x_1 x_2; ...; f x_n-1 x_n]`,
+	   the `a` init value will be mapped with the highest x2, not the lowest x1 we need.
+	*)
+	let xas' := pairmap (fun x x' => (x', x)) x0a (rev xas)
+	let xbs' := pairmap (fun x x' => (x', x)) x0b (rev xbs)
+	let folder := fun `(cai, cbi, yai, ybi) `(sp, xa, xb) => 
+		zn_to_z2_tai_tbi sp cia cbi yai ybi in
+	(* For party A,B: c0=0,  y0=x0*)
+	foldl folder [:: (0, 0, x0a, x0b)] (zip sps (zip xas xbs))
+
 Fixpoint zn_to_z2_step_2 (sps: list SMC) (xas xbs : list Z) : (list (Z * Z)) :=
 	match sps, xas, xbs with
-	| sp :: tlsps, ca :: tlcas, cb :: tlcbs, xa :: tlxas, xbk :: tlxbs => 
-		(zn_to_z2_tai_tbi sp ca cb xa xb :: zn_to_z2_step_2 tlsps tlcas tlcbs tlxas tlxbs)
-	| _, _, _, _, _ => []
+	| sp :: tlsps, xa :: tlxas, xb :: tlxbs => 
+		(zn_to_z2_tai_tbi sp ca cb xa xb :: zn_to_z2_step_2 tlsps tlxas tlxbs)
+	| _, _, _ => [::]
 	end.
+
+
 
 (* According to step 1: must set cas[0] = cbs[0] = 0 *)
 (* TODO: zn_to_z2_step_2 is not completed yet. See comments above. *)
@@ -210,3 +228,4 @@ Definition zn_to_z2 (sps: list SMC) (cas cbs xas xbs : list Z) : (list Z * list 
 			iteration_results
 			([],[]) in
 	to_lists.
+
