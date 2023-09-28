@@ -189,43 +189,27 @@ Definition zn_to_z2_step2 (sp: SMC) (cai cbi xai xbi xai' xbi': Z) : (Z * Z * Z 
 	let ybi' := (xbi' + cbi') mod 2 in
 	(cai', cbi', yai', ybi').
 
-(* TODO:  *)
-
-Eval compute in (pairmap (fun prev curr => (curr, prev)) 0 [:: 4; 3; 2; 1]).
-
-(* Note: cannot put x0a and x0b in lists because they need to be the init vars specified in params. *)
-Definition zn_to_z2  (sps: list SMC) (x0a x0b: Z) (xas xbs: list Z): (list (Z * Z * Z * Z)) :=
-	(* since each step 2 requires xi and xi', we need to make the list [xi] to [(xi', xi)] first *)
-	(* rev because 5 = [:: x2=1; x1=0; x0=1];
-	   and xs without x0 is [:: x2=1; x1=0];
-	   and we need [:: (x2, x1); (x1, x0)];
-	   while the natural order of `pairmap := [:: f a x_1; f x_1 x_2; ...; f x_n-1 x_n]`,
-	   the `a` init value will be mapped with the highest x2, not the lowest x1 we need.
-	*)
-	let xas' := pairmap (fun x x' => (x', x)) x0a (rev xas)
-	let xbs' := pairmap (fun x x' => (x', x)) x0b (rev xbs)
-	let folder := fun `(cai, cbi, yai, ybi) `(sp, xa, xb) => 
-		zn_to_z2_tai_tbi sp cia cbi yai ybi in
-	(* For party A,B: c0=0,  y0=x0*)
-	foldl folder [:: (0, 0, x0a, x0b)] (zip sps (zip xas xbs))
-
-Fixpoint zn_to_z2_step_2 (sps: list SMC) (xas xbs : list Z) : (list (Z * Z)) :=
-	match sps, xas, xbs with
-	| sp :: tlsps, xa :: tlxas, xb :: tlxbs => 
-		(zn_to_z2_tai_tbi sp ca cb xa xb :: zn_to_z2_step_2 tlsps tlxas tlxbs)
-	| _, _, _ => [::]
+Definition zn_to_z2_folder (acc: list (Z * Z * Z * Z)) (curr: (SMC * Z * Z * Z * Z)): list (Z * Z * Z * Z) :=
+	let '(sp, xa, xa', xb, xb') := curr in
+	match head (0, 0, 0, 0) acc with	(* calculate the new result and push it to the acc list *)
+	| (ca, cb, ya, yb) => zn_to_z2_step2 sp ca cb xa xb xa' xb' :: acc
 	end.
 
+(*  Give 0 [:: 1; 2; 3] --> want result [:: (3, 2); (2, 1); (1, 0)] *)
+Eval compute in (map (fun '(x, x') => (x', x)) (rev (zip ((0 :: [:: 1; 2; 3])) ([:: 1; 2; 3])))).
 
-
-(* According to step 1: must set cas[0] = cbs[0] = 0 *)
-(* TODO: zn_to_z2_step_2 is not completed yet. See comments above. *)
-Definition zn_to_z2 (sps: list SMC) (cas cbs xas xbs : list Z) : (list Z * list Z) :=
-	let iteration_results := zn_to_z2_step_2 sps cas cbs xas xbs in
-	(* From list of pairs to pair of lists: ([ta_k-1...ta_0], [tb_k-1...tb_0]). *)
-	let to_lists := fold_left
-			(fun sumlists ti_pair => (fst ti_pair :: fst sumlists, snd ti_pair :: snd sumlists))
-			iteration_results
-			([],[]) in
-	to_lists.
+(* Note: cannot put x0a and x0b in lists because they need to be the init vars specified in params. *)
+Definition zn_to_z2 (sps: list SMC) (x0a x0b: Z) (xas xbs: list Z): (list (Z * Z * Z * Z)) :=
+	(* since each step 2 requires xi and xi', we need to make the list [xi] to [(xi', xi)] first,
+	   which are `xas'` and `xbs'`. Remember that [:: xai'''....xai'; xai] = xa in binary,
+	   and each element means 1 or 0 for xa's bits.
+	*)
+	(* They are made with `rev` because decimal 5 in binary = xs = [:: x2=1; x1=0; x0=1];
+	   and xs without the x0a/x0b must come from param is [:: x2=1; x1=0];
+	   and we need [:: (x2, x1); (x1, x0)] from high to low bits.
+	*)
+	let xas' := map (fun '(x, x') => (x', x)) (rev (zip ((x0a :: xas)) xas)) in
+	let xbs' := map (fun '(x, x') => (x', x)) (rev (zip ((x0b :: xbs)) xbs)) in
+	let init := [:: (0, 0, x0a, x0b)] in  (* For party A,B: c0=0, y0=x0 *)
+	foldl zn_to_z2_folder init (zip sps (zip xas' xbs')).
 
