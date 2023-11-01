@@ -1,6 +1,7 @@
-From mathcomp Require Import ssreflect eqtype ssrbool ssrnat seq tuple.
+From mathcomp Require Import ssreflect eqtype ssrbool ssrnat seq tuple ssrfun.
 Require Import ssrZ ZArith_ext uniq_tac ssrnat_ext.
-	
+Require Import flattenzip.
+
 
 (* Because I'm not sure which vector lib I should use,
    and because of all time I tried and spent on debugging dependant types:
@@ -29,11 +30,17 @@ Definition dotproduct (la lb: list Z) : Z :=
 Definition add (la lb: list Z) : list Z :=
 	zipWith (fun a b => a + b) la lb.
 
+Definition add_mod2 (la lb: list Z) : list Z :=
+	zipWith (fun a b => (a + b) mod 2) la lb.
+
 Reserved Notation "la '`*' lb" (at level 50, format "'[' la  `*  lb ']'").
 Notation "la '`*' lb" := (dotproduct la lb).
 
 Reserved Notation "la '`+' lb" (at level 40, format "'[' la  `+  lb ']'").
 Notation "la '`+' lb" := (add la lb).
+
+Reserved Notation "la '`+_2' lb" (at level 40, format "'[' la  `+_2  lb ']'").
+Notation "la '`+_2' lb" := (add_mod2 la lb).
 
 Eval compute in (([::1;2] `+ [::1;2;3]) `* [::-1;-2]).
 
@@ -72,7 +79,6 @@ Definition scalar_product (Ra Rb: list Z) (ra rb yb: Z) (Xa Xb: list Z): (Z * Z)
 	let ya := scalar_product_alice_fin X'b Ra ra t in
 	(scalar_product_alice_fin X'b Ra ra t, scalar_product_bob_step_fin yb).
 
-
 Definition demo_Alice3_Bob2 : (Z * Z) :=
 	let Ra := [:: 9 ] in
 	let Rb := [:: 8 ] in
@@ -89,15 +95,18 @@ Definition demo_Alice3_Bob2 : (Z * Z) :=
 
 *)
 
-Lemma demo_is_correct: fst demo_Alice3_Bob2 + snd demo_Alice3_Bob2 = 3 * 2.
+Lemma demo_smc_scalar_product: fst demo_Alice3_Bob2 + snd demo_Alice3_Bob2 = 3 * 2.
 Proof.
 	compute.
 	done.
 Qed.
 
-(* TODO: a real generic proof, not for just one case? *)
+(* TODO: a real generic proof for the SMC scalar-product, not for just one case? *)
 
 Definition SMC := list Z -> list Z -> (Z * Z).
+
+Definition preset_sp (Ra Rb: list Z) (ra yb: Z): SMC :=
+	scalar_product Ra Rb ra (scalar_product_commidity_rb Ra Rb ra) yb. 
 
 (* Before we can have a Monad,
    use curried version to store the commodity, so use it like:
@@ -172,11 +181,6 @@ Fixpoint commodities (Ras Rbs: list (list Z)) (ras ybs: list Z): list SMC :=
    (Alice: Xa, Bob: Xb) |-> (ya0...yak), (yb0...ybk), such that:
    Xa + Xb = X = (yk yk-1 ... y1 y0)2, where yi = (yia + yib) mod 2
 *)
-(*
-Fixpoint zn_to_z2 : (sps: list SMC): SMC :
-	fold_left (fun sp => ) sps
-
-*)
 
 (* Step 2 for two party. *)
 Definition zn_to_z2_step2 (sp: SMC) (cai cbi xai xbi xai' xbi': Z) : (Z * Z * Z *Z) :=
@@ -191,25 +195,67 @@ Definition zn_to_z2_step2 (sp: SMC) (cai cbi xai xbi xai' xbi': Z) : (Z * Z * Z 
 
 Definition zn_to_z2_folder (acc: list (Z * Z * Z * Z)) (curr: (SMC * Z * Z * Z * Z)): list (Z * Z * Z * Z) :=
 	let '(sp, xa, xa', xb, xb') := curr in
-	match head (0, 0, 0, 0) acc with	(* calculate the new result and push it to the acc list *)
+	match head (0, 0, 0, 0) acc with (* get previous ca, cb and use them to calculate the new result, and push the new result to the acc list*)
 	| (ca, cb, ya, yb) => zn_to_z2_step2 sp ca cb xa xb xa' xb' :: acc
 	end.
 
-(*  Give 0 [:: 1; 2; 3] --> want result [:: (3, 2); (2, 1); (1, 0)] *)
-Eval compute in (map (fun '(x, x') => (x', x)) (rev (zip ((0 :: [:: 1; 2; 3])) ([:: 1; 2; 3])))).
-
 (* Note: cannot put x0a and x0b in lists because they need to be the init vars specified in params. *)
-Definition zn_to_z2 (sps: list SMC) (x0a x0b: Z) (xas xbs: list Z): (list (Z * Z * Z * Z)) :=
+(* result: ([ya_k...ya_0], [yb_k...yb_0]) *)
+Definition zn_to_z2 (sps: list SMC) (x0a x0b: Z) (xas xbs: list Z): (list Z * list Z) :=
 	(* since each step 2 requires xi and xi', we need to make the list [xi] to [(xi', xi)] first,
 	   which are `xas'` and `xbs'`. Remember that [:: xai'''....xai'; xai] = xa in binary,
 	   and each element means 1 or 0 for xa's bits.
 	*)
-	(* They are made with `rev` because decimal 5 in binary = xs = [:: x2=1; x1=0; x0=1];
-	   and xs without the x0a/x0b must come from param is [:: x2=1; x1=0];
-	   and we need [:: (x2, x1); (x1, x0)] from high to low bits.
-	*)
-	let xas' := map (fun '(x, x') => (x', x)) (rev (zip ((x0a :: xas)) xas)) in
-	let xbs' := map (fun '(x, x') => (x', x)) (rev (zip ((x0b :: xbs)) xbs)) in
-	let init := [:: (0, 0, x0a, x0b)] in  (* For party A,B: c0=0, y0=x0 *)
-	foldl zn_to_z2_folder init (zip sps (zip xas' xbs')).
+	(* They are made with `rev`s because decimal 5 in binary = xs = [:: x2=1; x1=0; x0=1];
+	   and xs excludes the x0a/x0b which must come from param is [:: x1=0; x2=1];
 
+	   and what we need actually is: [:: (x2, x1); (x1, x0)] from high to low bits,
+	   with overlapping element in each time we do foldering. So for example, `5=1 0 1`:
+
+	   zip (x0a  :: rxas           ) rxas            =
+	   zip (x0=0 :: [:: x1=0; x2=1]) [:: x1=0; x2=1] =
+	   zip [:: x0=0; x1=0; x2=1]     [:: x1=0; x2=1] =
+       [:: (x0=0, x1=0); (x1=0, x2=1)]
+
+	   then rev it, so it becomes:
+
+	   [:: (x1=0, x2=1); (x0=0, x1=0)]
+
+	   and then we still need to swap each pair's elements inside, so we need the `map`:
+
+	   map ... [:: (x1=0, x2=1); (x0=0, x1=0)] =
+	   [:: (x2=1, x1=0); (x1=0, x0=0)]
+
+	   then finally we get what we want.
+	*)
+	let rxas := rev xas in
+	let rxbs := rev xbs in
+	let xas' := map (fun '(x, x') => (x', x)) (rev (zip (x0a :: rxas) rxas)) in
+	let xbs' := map (fun '(x, x') => (x', x)) (rev (zip (x0b :: rxbs) rxbs)) in
+	let init := [:: (0, 0, x0a, x0b)] in  (* For party A,B: c0=0, y0=x0 *)
+	let list_of_pairs := foldl zn_to_z2_folder init (flatzip1_4 sps (flatzip2_2 xas' xbs')) in
+	let ya_bits := map (fun '(ca, cb, ya, yb) => ya) list_of_pairs in
+	let yb_bits := map (fun '(ca, cb, ya, yb) => yb) list_of_pairs in
+	(ya_bits, yb_bits).
+
+(* Alice: 3 = (0 1 1); Bob: 2 = (0 1 0); A+B = 5 = (1 0 1) = zn-to-z2 5*)
+(* Need 3 times of SMC scalar-product. *)
+Definition demo_Alice3_Bob2_zn_to_z2 : (list Z * list Z) := 
+	let sps := [:: 
+		preset_sp [::9] [::8] 13 66;
+		preset_sp [::32] [::43] 34 5;
+		preset_sp [::57] [::40] 31 32
+	] in
+	let x0a := 1 in
+	let x0b := 0 in
+	let xas := [:: 0; 1] in (* (0 1 1) exclude the x0a = (0 1) *)
+	let xbs := [:: 0; 1] in (* (0 1 0) exclude the x0b = (0 1) *)
+	zn_to_z2 sps x0a x0b xas xbs.
+
+Eval compute in (demo_Alice3_Bob2_zn_to_z2).
+
+Lemma demo_smc_Alice3_Bob2_zn_to_z2: fst demo_Alice3_Bob2_zn_to_z2 `+_2 snd demo_Alice3_Bob2_zn_to_z2 = [:: 1; 0; 1].
+Proof.
+	compute.
+	done.
+Qed.
