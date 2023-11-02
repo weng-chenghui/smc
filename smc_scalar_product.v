@@ -33,13 +33,13 @@ Definition add (la lb: list Z) : list Z :=
 Definition add_mod2 (la lb: list Z) : list Z :=
 	zipWith (fun a b => (a + b) mod 2) la lb.
 
-Reserved Notation "la '`*' lb" (at level 50, format "'[' la  `*  lb ']'").
+Reserved Notation "la '`*' lb" (at level 40, format "'[' la  `*  lb ']'").
 Notation "la '`*' lb" := (dotproduct la lb).
 
-Reserved Notation "la '`+' lb" (at level 40, format "'[' la  `+  lb ']'").
+Reserved Notation "la '`+' lb" (at level 50, format "'[' la  `+  lb ']'").
 Notation "la '`+' lb" := (add la lb).
 
-Reserved Notation "la '`+_2' lb" (at level 40, format "'[' la  `+_2  lb ']'").
+Reserved Notation "la '`+_2' lb" (at level 50, format "'[' la  `+_2  lb ']'").
 Notation "la '`+_2' lb" := (add_mod2 la lb).
 
 Eval compute in (([::1;2] `+ [::1;2;3]) `* [::-1;-2]).
@@ -71,7 +71,6 @@ Definition scalar_product_bob_step_fin (yb: Z): Z :=
 Definition scalar_product_commidity_rb (Ra Rb: list Z) (ra: Z): Z :=
 	(Ra `* Rb) - ra.
 
-
 Definition scalar_product (Ra Rb: list Z) (ra rb yb: Z) (Xa Xb: list Z): (Z * Z) :=
 	let X'a := scalar_product_alice_step1 Xa Ra in
 	let X'b := scalar_prduct_bob_step1 Xb Rb in
@@ -94,6 +93,37 @@ Definition demo_Alice3_Bob2 : (Z * Z) :=
 	ya + yb = Xa * Xb
 
 *)
+
+Lemma dot_productC (aa bb : list Z) : aa `* bb = bb `* aa.
+Admitted.
+
+Lemma dot_productDr (aa bb cc : list Z) : aa `* (bb `+ cc) = aa `* bb + aa `* cc.
+Admitted.
+
+Lemma scalar_product_correct (Ra Rb : list Z) (ra yb : Z) (Xa Xb : list Z) :
+  let rb := scalar_product_commidity_rb Ra Rb ra in
+  let (ya, yb') := scalar_product Ra Rb ra rb yb Xa Xb in
+  ya + yb' = Xa `* Xb.
+Proof.
+move=> rb.
+red.
+rewrite /scalar_product_alice_fin.
+rewrite addZC.
+rewrite /scalar_prduct_bob_step2.
+rewrite -(addZNE _ yb).
+rewrite (addZC _ (- yb)).
+rewrite !addZA (addZNE yb) subZZ add0Z.
+rewrite /scalar_product_alice_step1.
+rewrite /scalar_prduct_bob_step1.
+rewrite dot_productDr dot_productC.
+rewrite -!addZA Z.add_move_l subZZ.
+rewrite dot_productDr.
+rewrite Z.opp_add_distr (dot_productC Ra Xb).
+rewrite !addZA (addZC _ (- (Xb `* Ra))) !addZA.
+rewrite (addZC _ (Xb `* Ra)) !addZNE subZZ add0Z.
+rewrite -!addZNE.
+ring.
+Qed.
 
 Lemma demo_smc_scalar_product: fst demo_Alice3_Bob2 + snd demo_Alice3_Bob2 = 3 * 2.
 Proof.
