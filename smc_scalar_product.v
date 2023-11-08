@@ -131,8 +131,6 @@ Proof.
 	done.
 Qed.
 
-(* TODO: a real generic proof for the SMC scalar-product, not for just one case? *)
-
 Definition SMC := list Z -> list Z -> (Z * Z).
 
 Definition preset_sp (Ra Rb: list Z) (ra yb: Z): SMC :=
@@ -212,21 +210,105 @@ Fixpoint commodities (Ras Rbs: list (list Z)) (ras ybs: list Z): list SMC :=
    Xa + Xb = X = (yk yk-1 ... y1 y0)2, where yi = (yia + yib) mod 2
 *)
 
+Definition zn_to_z2_step2_1 (sp: SMC) (cai cbi xai xbi: Z) : (Z * Z) :=
+	sp [:: cai; xai; xai] [:: xbi; cbi; xbi].
+
 (* Step 2 for two party. *)
-Definition zn_to_z2_step2 (sp: SMC) (cai cbi xai xbi xai' xbi': Z) : (Z * Z * Z *Z) :=
-	let tai_tbi := sp [:: cai; xai; xai] [:: xbi; cbi; xbi] in
-	let tai := fst tai_tbi in
-	let tbi := snd tai_tbi in
+Definition zn_to_z2_step2_2 (tai_tbi: Z * Z) (cai cbi xai xbi xai' xbi': Z) : (Z * Z * Z *Z) :=
+	let (tai, tbi) := tai_tbi in
 	let cai' := (cai * xai + tai) mod 2 in
 	let cbi' := (cbi * xbi + tbi) mod 2 in
 	let yai' := (xai' + cai') mod 2 in
 	let ybi' := (xbi' + cbi') mod 2 in
 	(cai', cbi', yai', ybi').
 
+
+(* Shows it is correct if the `sp` fed to the step_2_1 is a SMC scalar-product. *)
+(* Because SMC scalar-product its correctness also relies on all parameters from Ra to yb,
+   parameters for both scalar_product and zn_to_z2_step2_1 are all listed.
+*)
+Lemma zn_to_z2_step2_1_correct (Ra Rb: list Z) (ra yb cai cbi xai xbi xai' xbi': Z) :
+	let rb := scalar_product_commidity_rb Ra Rb ra in
+	let alice_input := [:: cai; xai; xai] in
+	let bob_input := [:: xbi; cbi; xbi] in
+	let sp := scalar_product Ra Rb ra rb yb in
+	let (tai, tbi) := zn_to_z2_step2_1 sp cai cbi xai xbi in
+	tai + tbi = alice_input `* bob_input .
+Proof.
+move=> rb.
+move=> alice_input.
+move=> bob_input.
+move=> sp.
+red.
+case (scalar_product_correct Ra Rb ra yb alice_input bob_input).
+rewrite /scalar_product_alice_fin.
+rewrite /bob_input.
+rewrite /scalar_prduct_bob_step2.
+rewrite /alice_input.
+rewrite /scalar_product_alice_step1.
+rewrite /scalar_product_commidity_rb.
+rewrite /scalar_prduct_bob_step1.
+rewrite /scalar_product_bob_step_fin.
+rewrite -!addZA.
+rewrite dot_productDr dot_productC.
+rewrite -!addZA.  (* It expands the actual dotproduct well -- although from the definition of addZA it is not related to the result? *)
+rewrite /(dotproduct [:: xbi; cbi; xbi] Ra). (* But this will brings too much impl details like foldl, Z.add, etc. Because `Ra` is opaque compare to the line above.*)
+Abort.
+
+(*TODO:
+
+
+Because SMC ia a general (list Z -> list Z -> (Z * Z)) definition,
+any SMC can be the `sp`. We must show what we feed to z2-to-zn, is SMC scalar-product,
+so we can use the scalar_product_correct lemma.
+
+----
+
+Learnt:
+
+Need to _bring_ proved properties and functions asssociated to the
+new proof goal. For example, in `zn_to_z2_step2_1_correct`, 
+the `sp` needs to be exactly the scalar_product function,
+so previously proved things about the scalar_product function can be used.
+
+So the proof bring more definitions and parameters than the proof target
+function itself. For example, parameters for both scalar_product and zn_to_z2_step2_1
+are all listed. Not just paramterrs for the proof target zn_to_z2_step2_1.
+
+It is like proving it works in a context. While the context in this case is
+all related parameters. When writing tests, there are some test environments
+like mocks or configs, too.
+
+*)
+
+(*Memo:
+
+    let (b, c) := f a in (b, c)
+
+is a syntax sugar of:
+
+    match f a with (b, c) => (b, c) end
+
+This means you need to destruct on f a to finish the proof.
+
+    destruct (f a)
+
+So:
+
+let (tai, tbi) :=
+  sp [:: cai; xai; xai] [:: xbi; cbi; xbi] in
+tai + tbi = [:: cai; xai; xai] `* [:: xbi; cbi; xbi]
+
+Equals to:
+
+match (sp [:: cai; xai; xai] [:: xbi; cbi; xbi]) with (tai + tbi = [:: cai; xai; xai] `* [:: xbi; cbi; xbi]) => (tai, tbi) end
+
+*)
+
 Definition zn_to_z2_folder (acc: list (Z * Z * Z * Z)) (curr: (SMC * Z * Z * Z * Z)): list (Z * Z * Z * Z) :=
 	let '(sp, xa, xa', xb, xb') := curr in
 	match head (0, 0, 0, 0) acc with (* get previous ca, cb and use them to calculate the new result, and push the new result to the acc list*)
-	| (ca, cb, ya, yb) => zn_to_z2_step2 sp ca cb xa xb xa' xb' :: acc
+	| (ca, cb, ya, yb) => zn_to_z2_step2_2 (zn_to_z2_step2_1 sp ca cb xa xb) ca cb xa xb xa' xb' :: acc
 	end.
 
 (* Note: cannot put x0a and x0b in lists because they need to be the init vars specified in params. *)
