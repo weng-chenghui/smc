@@ -234,7 +234,7 @@ Lemma zn_to_z2_step2_1_correct (Ra Rb: list Z) (ra yb cai cbi xai xbi xai' xbi':
 	let sp := scalar_product Ra Rb ra rb yb in
 	let (tai, tbi) := zn_to_z2_step2_1 sp cai cbi xai xbi in
 	tai + tbi = alice_input `* bob_input .
-Proof. move=> *; exact: scalar_product_correct. Qed.
+Proof. exact: scalar_product_correct. Qed.
 
 (*TODO:
 
