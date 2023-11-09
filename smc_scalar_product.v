@@ -234,26 +234,7 @@ Lemma zn_to_z2_step2_1_correct (Ra Rb: list Z) (ra yb cai cbi xai xbi xai' xbi':
 	let sp := scalar_product Ra Rb ra rb yb in
 	let (tai, tbi) := zn_to_z2_step2_1 sp cai cbi xai xbi in
 	tai + tbi = alice_input `* bob_input .
-Proof.
-move=> rb.
-move=> alice_input.
-move=> bob_input.
-move=> sp.
-red.
-case (scalar_product_correct Ra Rb ra yb alice_input bob_input).
-rewrite /scalar_product_alice_fin.
-rewrite /bob_input.
-rewrite /scalar_prduct_bob_step2.
-rewrite /alice_input.
-rewrite /scalar_product_alice_step1.
-rewrite /scalar_product_commidity_rb.
-rewrite /scalar_prduct_bob_step1.
-rewrite /scalar_product_bob_step_fin.
-rewrite -!addZA.
-rewrite dot_productDr dot_productC.
-rewrite -!addZA.  (* It expands the actual dotproduct well -- although from the definition of addZA it is not related to the result? *)
-rewrite /(dotproduct [:: xbi; cbi; xbi] Ra). (* But this will brings too much impl details like foldl, Z.add, etc. Because `Ra` is opaque compare to the line above.*)
-Abort.
+Proof. move=> *; exact: scalar_product_correct. Qed.
 
 (*TODO:
 
