@@ -105,20 +105,16 @@ Lemma scalar_product_correct (Ra Rb : list Z) (ra yb : Z) (Xa Xb : list Z) :
   let (ya, yb') := scalar_product Ra Rb ra rb yb Xa Xb in
   ya + yb' = Xa `* Xb.
 Proof.
-move=> rb.
-red.
+simpl.
 rewrite /scalar_product_alice_fin.
-rewrite addZC.
 rewrite /scalar_prduct_bob_step2.
-rewrite -(addZNE _ yb).
-rewrite (addZC _ (- yb)).
-rewrite !addZA (addZNE yb) subZZ add0Z.
 rewrite /scalar_product_alice_step1.
 rewrite /scalar_prduct_bob_step1.
-rewrite dot_productDr dot_productC.
-rewrite -!addZA Z.add_move_l subZZ.
-rewrite dot_productDr.
-rewrite Z.opp_add_distr (dot_productC Ra Xb).
+rewrite /scalar_product_bob_step_fin.
+rewrite /scalar_product_commidity_rb.
+rewrite !dot_productDr.
+rewrite (dot_productC Xb Xa).
+rewrite (dot_productC Xb Ra).
 ring.
 Qed.
 
