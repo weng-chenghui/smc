@@ -118,10 +118,6 @@ rewrite (dot_productC Xb Ra).
 ring.
 Qed.
 
-About zip.
-Print zip.
-Search zip.
-
 Lemma demo_smc_scalar_product: fst demo_Alice3_Bob2 + snd demo_Alice3_Bob2 = 3 * 2.
 Proof.
 	compute.
@@ -211,13 +207,14 @@ Definition zn_to_z2_step2_1 (sp: SMC) (cai cbi xai xbi: Z) : (Z * Z) :=
 	sp [:: cai; xai; xai] [:: xbi; cbi; xbi].
 
 (* Step 2 for two party. *)
-Definition zn_to_z2_step2_2 (tai_tbi: Z * Z) (cai cbi xai xbi xai' xbi': Z) : (Z * Z * Z *Z) :=
+Definition zn_to_z2_step2_2 (tai_tbi: Z * Z) (ci xi xi' : Z * Z) :
+  (Z * Z) * (Z * Z) :=
 	let (tai, tbi) := tai_tbi in
-	let cai' := (cai * xai + tai) mod 2 in
-	let cbi' := (cbi * xbi + tbi) mod 2 in
-	let yai' := (xai' + cai') mod 2 in
-	let ybi' := (xbi' + cbi') mod 2 in
-	(cai', cbi', yai', ybi').
+	let cai' := (ci.1 * xi.1 + tai) mod 2 in
+	let cbi' := (ci.2 * xi.2 + tbi) mod 2 in
+	let yai' := (xi'.1 + cai') mod 2 in
+	let ybi' := (xi'.2 + cbi') mod 2 in
+	((cai', cbi'), (yai', ybi')).
 
 
 (* Shows it is correct if the `sp` fed to the step_2_1 is a SMC scalar-product. *)
