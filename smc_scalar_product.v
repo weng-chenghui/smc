@@ -119,9 +119,6 @@ rewrite dot_productDr dot_productC.
 rewrite -!addZA Z.add_move_l subZZ.
 rewrite dot_productDr.
 rewrite Z.opp_add_distr (dot_productC Ra Xb).
-rewrite !addZA (addZC _ (- (Xb `* Ra))) !addZA.
-rewrite (addZC _ (Xb `* Ra)) !addZNE subZZ add0Z.
-rewrite -!addZNE.
 ring.
 Qed.
 
