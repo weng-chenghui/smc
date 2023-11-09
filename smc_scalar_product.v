@@ -118,6 +118,10 @@ rewrite (dot_productC Xb Ra).
 ring.
 Qed.
 
+About zip.
+Print zip.
+Search zip.
+
 Lemma demo_smc_scalar_product: fst demo_Alice3_Bob2 + snd demo_Alice3_Bob2 = 3 * 2.
 Proof.
 	compute.
@@ -298,6 +302,7 @@ Definition zn_to_z2 (sps: list SMC) (x0a x0b: Z) (xas xbs: list Z): (list Z * li
 	   and what we need actually is: [:: (x2, x1); (x1, x0)] from high to low bits,
 	   with overlapping element in each time we do foldering. So for example, `5=1 0 1`:
 
+           (rxas := rev xas)
 	   zip (x0a  :: rxas           ) rxas            =
 	   zip (x0=0 :: [:: x1=0; x2=1]) [:: x1=0; x2=1] =
 	   zip [:: x0=0; x1=0; x2=1]     [:: x1=0; x2=1] =
@@ -314,10 +319,8 @@ Definition zn_to_z2 (sps: list SMC) (x0a x0b: Z) (xas xbs: list Z): (list Z * li
 
 	   then finally we get what we want.
 	*)
-	let rxas := rev xas in
-	let rxbs := rev xbs in
-	let xas' := map (fun '(x, x') => (x', x)) (rev (zip (x0a :: rxas) rxas)) in
-	let xbs' := map (fun '(x, x') => (x', x)) (rev (zip (x0b :: rxbs) rxbs)) in
+	let xas' := zip xas (behead (rcons xas x0a)) in
+	let xbs' := zip xbs (behead (rcons xbs x0b)) in
 	let init := [:: (0, 0, x0a, x0b)] in  (* For party A,B: c0=0, y0=x0 *)
 	let list_of_pairs := foldl zn_to_z2_folder init (flatzip1_4 sps (flatzip2_2 xas' xbs')) in
 	let ya_bits := map (fun '(ca, cb, ya, yb) => ya) list_of_pairs in
