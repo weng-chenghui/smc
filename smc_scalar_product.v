@@ -285,10 +285,14 @@ match (sp [:: cai; xai; xai] [:: xbi; cbi; xbi]) with (tai + tbi = [:: cai; xai;
 
 *)
 
-Definition zn_to_z2_folder (acc: list (Z * Z * (Z * Z))) (curr: (SMC * ((Z * Z) * (Z * Z)))): list (Z * Z * (Z * Z)) :=
+Definition zn_to_z2_folder (acc: Z * Z * list (Z * Z)) (curr: (SMC * ((Z * Z) * (Z * Z)))): Z * Z * list(Z * Z) :=
 	let '(sp, ((xa, xa'), (xb, xb'))) := curr in
-	match head ((0, 0), (0, 0)) acc with (* get previous ca, cb and use them to calculate the new result, and push the new result to the acc list*)
-	| (ca, cb, (ya, yb)) => zn_to_z2_step2_2 (zn_to_z2_step2_1 sp ca cb xa xb) (ca, cb) (xa, xb) (xa', xb') :: acc
+	let '(ca, cb, ys) := acc in 
+	match head (0, 0) ys with (* get previous ca, cb and use them to calculate the new result, and push the new result to the acc list*)
+	| (ya, yb) => 
+		let '(cs, yab) := 
+			zn_to_z2_step2_2 (zn_to_z2_step2_1 sp ca cb xa xb) (ca, cb) (xa, xb) (xa', xb')
+		in (cs, yab :: ys)
 	end.
 
 (*
@@ -304,23 +308,28 @@ Definition zn_to_z2_folder (acc: list (Z * Z * (Z * Z))) (curr: (SMC * ((Z * Z) 
 
 *)
 
-Definition acc_correct (xas xbs: list Z) (acc: list (Z * Z * (Z * Z))) :=
-	let xa_n := take (size acc) xas in
-	let xb_n := take (size acc) xbs in
-	let yas := unzip1 (unzip2 acc) in
-	let ybs := unzip2 (unzip2 acc) in
+Definition acc_correct (xas xbs: list Z) (acc: Z * Z * list (Z * Z)) :=
+	let '(ca, cb, ys) := acc in
+	let xa_n := take (size ys) xas in
+	let xb_n := take (size ys) xbs in
+	let yas := unzip1 (unzip2 ys) in
+	let ybs := unzip2 (unzip2 ys) in
 	yas `+ ybs = xa_n `+ xb_n.
-
 
 (*
 
-c_i+1 = c_i * xa + ci * xb + xai*xbi
+c_i+1 = c_i * xa + c_i * xb + xai*xbi
+
+What is the c's property after c becomes ca and cb?
+For example, (ca + cb) mod2= c?
+
+==? Maybe we don't and we cannot say c is correct in acc_correct#
 *)
 
 Lemma zn_to_z2_folder_correct acc curr (xas xbs: list Z):
-
 	let acc' := zn_to_z2_folder acc curr in
-	is_scalar_product curr.1 -> 
+	(* can prove carry bits are correct this time because we now have i and i+1*)
+	is_scalar_product curr.1 -> acc_correct xas xbs acc -> acc_correct xas xbs acc' .
 Proof:
 
 Abort.
@@ -335,7 +344,7 @@ Abort.
    putting them in the param list seems easier.
 *)
 (* result: ([ya_k...ya_0], [yb_k...yb_0]) *)
-Definition zn_to_z2 (sps: list SMC) (x0a x0b: Z) (xas xbs: list Z): (list Z * list Z) :=
+Definition zn_to_z2 (sps: list SMC) (xas xbs: list Z): (list Z * list Z) :=
 	(* What we need actually is: [:: (x2, x1); (x1, x0)] from high to low bits,
 	   with overlapping element in each time we do foldering.
 	   
