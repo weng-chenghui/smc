@@ -1,6 +1,5 @@
 From mathcomp Require Import ssreflect eqtype ssrbool ssrnat seq tuple ssrfun.
 Require Import ssrZ ZArith_ext uniq_tac ssrnat_ext.
-Require Import flattenzip.
 
 
 (* Because I'm not sure which vector lib I should use,
@@ -280,48 +279,43 @@ match (sp [:: cai; xai; xai] [:: xbi; cbi; xbi]) with (tai + tbi = [:: cai; xai;
 
 *)
 
-Definition zn_to_z2_folder (acc: list (Z * Z * Z * Z)) (curr: (SMC * Z * Z * Z * Z)): list (Z * Z * Z * Z) :=
-	let '(sp, xa, xa', xb, xb') := curr in
-	match head (0, 0, 0, 0) acc with (* get previous ca, cb and use them to calculate the new result, and push the new result to the acc list*)
-	| (ca, cb, ya, yb) => zn_to_z2_step2_2 (zn_to_z2_step2_1 sp ca cb xa xb) ca cb xa xb xa' xb' :: acc
+Definition zn_to_z2_folder (acc: list (Z * Z * (Z * Z))) (curr: (SMC * ((Z * Z) * (Z * Z)))): list (Z * Z * (Z * Z)) :=
+	let '(sp, ((xa, xa'), (xb, xb'))) := curr in
+	match head ((0, 0), (0, 0)) acc with (* get previous ca, cb and use them to calculate the new result, and push the new result to the acc list*)
+	| (ca, cb, (ya, yb)) => zn_to_z2_step2_2 (zn_to_z2_step2_1 sp ca cb xa xb) (ca, cb) (xa, xb) (xa', xb') :: acc
 	end.
 
-(* Note: cannot put x0a and x0b in lists because they need to be the init vars specified in params. *)
+(* Note: cannot put x0a and x0b in lists because they need to be the init vars specified in params.
+   Taking them from the xas and xbs will make two cases: if the lists are empty, cannot taking them.
+   So if we don't want to be bothered by using dependant type just for guaranteeing that we have x0a and x0b,
+   putting them in the param list seems easier.
+*)
 (* result: ([ya_k...ya_0], [yb_k...yb_0]) *)
 Definition zn_to_z2 (sps: list SMC) (x0a x0b: Z) (xas xbs: list Z): (list Z * list Z) :=
-	(* since each step 2 requires xi and xi', we need to make the list [xi] to [(xi', xi)] first,
-	   which are `xas'` and `xbs'`. Remember that [:: xai'''....xai'; xai] = xa in binary,
-	   and each element means 1 or 0 for xa's bits.
+	(* What we need actually is: [:: (x2, x1); (x1, x0)] from high to low bits,
+	   with overlapping element in each time we do foldering.
+	   
+	   So for example, `xas:6=1 1 0`, x0a: 0:
+
+	   What we want:
+
+	   [:: (x2=1, x1=1), (x1=1, x0=0)]
+
+	   So we zip two lists, and because zip will drop extra part, we shift the first list by padding 0:
+
+	       [:: x3=0 x2=1 x1=1 x0=0 ]   --> x3=0 is padded by cons
+	       [:: x2=1 x1=1 x0=0 ]
+	   zip ------------------------
+	       [:: (x3,x2), (x2,x1), (x1, x0) ]
+	   bhead
+	       [:: (x2,x1), (x1, x0) ]
 	*)
-	(* They are made with `rev`s because decimal 5 in binary = xs = [:: x2=1; x1=0; x0=1];
-	   and xs excludes the x0a/x0b which must come from param is [:: x1=0; x2=1];
-
-	   and what we need actually is: [:: (x2, x1); (x1, x0)] from high to low bits,
-	   with overlapping element in each time we do foldering. So for example, `5=1 0 1`:
-
-           (rxas := rev xas)
-	   zip (x0a  :: rxas           ) rxas            =
-	   zip (x0=0 :: [:: x1=0; x2=1]) [:: x1=0; x2=1] =
-	   zip [:: x0=0; x1=0; x2=1]     [:: x1=0; x2=1] =
-       [:: (x0=0, x1=0); (x1=0, x2=1)]
-
-	   then rev it, so it becomes:
-
-	   [:: (x1=0, x2=1); (x0=0, x1=0)]
-
-	   and then we still need to swap each pair's elements inside, so we need the `map`:
-
-	   map ... [:: (x1=0, x2=1); (x0=0, x1=0)] =
-	   [:: (x2=1, x1=0); (x1=0, x0=0)]
-
-	   then finally we get what we want.
-	*)
-	let xas' := zip xas (behead (rcons xas x0a)) in
-	let xbs' := zip xbs (behead (rcons xbs x0b)) in
-	let init := [:: (0, 0, x0a, x0b)] in  (* For party A,B: c0=0, y0=x0 *)
-	let list_of_pairs := foldl zn_to_z2_folder init (flatzip1_4 sps (flatzip2_2 xas' xbs')) in
-	let ya_bits := map (fun '(ca, cb, ya, yb) => ya) list_of_pairs in
-	let yb_bits := map (fun '(ca, cb, ya, yb) => yb) list_of_pairs in
+	let xas' := behead (zip (cons 0 xas) xas) in
+	let xbs' := behead (zip (cons 0 xbs) xbs) in
+	let init := [:: (0, 0, (x0a, x0b))] in  (* For party A,B: c0=0, y0=x0 *)
+	let list_of_pairs := foldl zn_to_z2_folder init (zip sps (zip xas' xbs')) in
+	let ya_bits := map (fun '(ca, cb, (ya, yb)) => ya) list_of_pairs in
+	let yb_bits := map (fun '(ca, cb, (ya, yb)) => yb) list_of_pairs in
 	(ya_bits, yb_bits).
 
 (* Alice: 3 = (0 1 1); Bob: 2 = (0 1 0); A+B = 5 = (1 0 1) = zn-to-z2 5*)
@@ -334,8 +328,8 @@ Definition demo_Alice3_Bob2_zn_to_z2 : (list Z * list Z) :=
 	] in
 	let x0a := 1 in
 	let x0b := 0 in
-	let xas := [:: 0; 1] in (* (0 1 1) exclude the x0a = (0 1) *)
-	let xbs := [:: 0; 1] in (* (0 1 0) exclude the x0b = (0 1) *)
+	let xas := [:: 0; 1; 1] in
+	let xbs := [:: 0; 1; 0] in
 	zn_to_z2 sps x0a x0b xas xbs.
 
 Eval compute in (demo_Alice3_Bob2_zn_to_z2).

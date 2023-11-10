@@ -1,6 +1,4 @@
 smc_scalar_product.v
 
-lib/flattenzip.v
-
 -R ../seplog seplog
 -R . smccoq
