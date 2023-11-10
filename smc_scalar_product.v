@@ -312,30 +312,24 @@ Definition acc_correct (xas xbs: list Z) (acc: Z * Z * list (Z * Z)) :=
 	let '(ca, cb, ys) := acc in
 	let xa_n := take (size ys) xas in
 	let xb_n := take (size ys) xbs in
-	let yas := unzip1 (unzip2 ys) in
-	let ybs := unzip2 (unzip2 ys) in
-	yas `+ ybs = xa_n `+ xb_n.
+	let yas := unzip1 ys in
+	let ybs := unzip2 ys in
+	let last_xa_n := nth 0 xas (size ys).-1 in
+	let last_xb_n := nth 0 xbs (size ys).-1 in
+	let last_y := nth (0, 0) ys (size ys).-1 in
+	let ca_ := last_y.1 - last_xa_n in
+	let cb_ := last_y.2 - last_xb_n in
+	yas `+ ybs = xa_n `+ xb_n /\ ca_ = ca /\ cb_ = cb.
 
-(*
-
-c_i+1 = c_i * xa + c_i * xb + xai*xbi
-
-What is the c's property after c becomes ca and cb?
-For example, (ca + cb) mod2= c?
-
-==? Maybe we don't and we cannot say c is correct in acc_correct#
-*)
+(* We have the carry bit actually: y_i = x_i + c_i *)
 
 Lemma zn_to_z2_folder_correct acc curr (xas xbs: list Z):
 	let acc' := zn_to_z2_folder acc curr in
 	(* can prove carry bits are correct this time because we now have i and i+1*)
-	is_scalar_product curr.1 -> acc_correct xas xbs acc -> acc_correct xas xbs acc' .
-Proof:
-
+	is_scalar_product curr.1 -> acc_correct xas xbs acc -> acc_correct xas xbs acc'.
+Proof.
+move=>/=acc'.
 Abort.
-
-
-
 
 
 (* Note: cannot put x0a and x0b in lists because they need to be the init vars specified in params.
