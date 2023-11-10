@@ -226,64 +226,15 @@ Definition zn_to_z2_step2_2 (tai_tbi: Z * Z) (ci xi xi' : Z * Z) :
 (* Because SMC scalar-product its correctness also relies on all parameters from Ra to yb,
    parameters for both scalar_product and zn_to_z2_step2_1 are all listed.
 *)
-Lemma zn_to_z2_step2_1_correct (Ra Rb: list Z) (ra yb cai cbi xai xbi xai' xbi': Z) :
-	let rb := scalar_product_commidity_rb Ra Rb ra in
+Lemma zn_to_z2_step2_1_correct (sp: SMC) (cai cbi xai xbi: Z) :
+	is_scalar_product sp ->
 	let alice_input := [:: cai; xai; xai] in
 	let bob_input := [:: xbi; cbi; xbi] in
-	let sp := scalar_product Ra Rb ra rb yb in
 	let (tai, tbi) := zn_to_z2_step2_1 sp cai cbi xai xbi in
 	tai + tbi = alice_input `* bob_input .
-Proof. exact: scalar_product_correct. Qed.
-
-(*TODO:
-
-
-Because SMC ia a general (list Z -> list Z -> (Z * Z)) definition,
-any SMC can be the `sp`. We must show what we feed to z2-to-zn, is SMC scalar-product,
-so we can use the scalar_product_correct lemma.
-
-----
-
-Learnt:
-
-Need to _bring_ proved properties and functions asssociated to the
-new proof goal. For example, in `zn_to_z2_step2_1_correct`, 
-the `sp` needs to be exactly the scalar_product function,
-so previously proved things about the scalar_product function can be used.
-
-So the proof bring more definitions and parameters than the proof target
-function itself. For example, parameters for both scalar_product and zn_to_z2_step2_1
-are all listed. Not just paramterrs for the proof target zn_to_z2_step2_1.
-
-It is like proving it works in a context. While the context in this case is
-all related parameters. When writing tests, there are some test environments
-like mocks or configs, too.
-
-*)
-
-(*Memo:
-
-    let (b, c) := f a in (b, c)
-
-is a syntax sugar of:
-
-    match f a with (b, c) => (b, c) end
-
-This means you need to destruct on f a to finish the proof.
-
-    destruct (f a)
-
-So:
-
-let (tai, tbi) :=
-  sp [:: cai; xai; xai] [:: xbi; cbi; xbi] in
-tai + tbi = [:: cai; xai; xai] `* [:: xbi; cbi; xbi]
-
-Equals to:
-
-match (sp [:: cai; xai; xai] [:: xbi; cbi; xbi]) with (tai + tbi = [:: cai; xai; xai] `* [:: xbi; cbi; xbi]) => (tai, tbi) end
-
-*)
+Proof.
+apply.
+Qed.
 
 Definition zn_to_z2_folder (acc: Z * Z * list (Z * Z)) (curr: (SMC * ((Z * Z) * (Z * Z)))): Z * Z * list(Z * Z) :=
 	let '(sp, ((xa, xa'), (xb, xb'))) := curr in
@@ -310,16 +261,14 @@ Definition zn_to_z2_folder (acc: Z * Z * list (Z * Z)) (curr: (SMC * ((Z * Z) * 
 
 Definition acc_correct (xas xbs: list Z) (acc: Z * Z * list (Z * Z)) :=
 	let '(ca, cb, ys) := acc in
-	let xa_n := take (size ys) xas in
-	let xb_n := take (size ys) xbs in
+	let xa_n := drop (size xas - size ys) xas in
+	let xb_n := drop (size xbs - size ys) xbs in
 	let yas := unzip1 ys in
 	let ybs := unzip2 ys in
-	let last_xa_n := nth 0 xas (size ys).-1 in
-	let last_xb_n := nth 0 xbs (size ys).-1 in
-	let last_y := nth (0, 0) ys (size ys).-1 in
-	let ca_ := last_y.1 - last_xa_n in
-	let cb_ := last_y.2 - last_xb_n in
-	yas `+ ybs = xa_n `+ xb_n /\ ca_ = ca /\ cb_ = cb.
+	let head_y := head (0, 0) ys in
+	let ca_ := head_y.1 - head 0 xas in
+	let cb_ := head_y.2 - head 0 xbs in
+	yas `+ ybs = xa_n `+ xb_n /\ ca_ = ca /\ cb_ = cb /\ (0 < size ys <= size xas)%nat /\ (size xas = size xbs).
 
 (* We have the carry bit actually: y_i = x_i + c_i *)
 
@@ -328,7 +277,17 @@ Lemma zn_to_z2_folder_correct acc curr (xas xbs: list Z):
 	(* can prove carry bits are correct this time because we now have i and i+1*)
 	is_scalar_product curr.1 -> acc_correct xas xbs acc -> acc_correct xas xbs acc'.
 Proof.
-move=>/=acc'.
+case: acc=>[[ca cb] ys].
+case: curr=>[smc [[xa xa'] [xb xb']]].
+move=>/=t_from_sp_correct.
+case=>[y_correct [ca_correct [cb_correct [y_not_empty xas_xbs_size_eq]]]].
+destruct ys as [|[y tail]]=>//.
+rewrite /acc_correct/=.
+have:=zn_to_z2_step2_1_correct smc ca cb xa xb t_from_sp_correct.
+destruct zn_to_z2_step2_1 as [tai tbi].
+simpl in *.
+move=>t_equation/=.
+
 Abort.
 
 
@@ -390,3 +349,54 @@ Proof.
 	compute.
 	done.
 Qed.
+
+
+(*TODO:
+
+
+Because SMC ia a general (list Z -> list Z -> (Z * Z)) definition,
+any SMC can be the `sp`. We must show what we feed to z2-to-zn, is SMC scalar-product,
+so we can use the scalar_product_correct lemma.
+
+----
+
+Learnt:
+
+Need to _bring_ proved properties and functions asssociated to the
+new proof goal. For example, in `zn_to_z2_step2_1_correct`, 
+the `sp` needs to be exactly the scalar_product function,
+so previously proved things about the scalar_product function can be used.
+
+So the proof bring more definitions and parameters than the proof target
+function itself. For example, parameters for both scalar_product and zn_to_z2_step2_1
+are all listed. Not just paramterrs for the proof target zn_to_z2_step2_1.
+
+It is like proving it works in a context. While the context in this case is
+all related parameters. When writing tests, there are some test environments
+like mocks or configs, too.
+
+*)
+
+(*Memo:
+
+    let (b, c) := f a in (b, c)
+
+is a syntax sugar of:
+
+    match f a with (b, c) => (b, c) end
+
+This means you need to destruct on f a to finish the proof.
+
+    destruct (f a)
+
+So:
+
+let (tai, tbi) :=
+  sp [:: cai; xai; xai] [:: xbi; cbi; xbi] in
+tai + tbi = [:: cai; xai; xai] `* [:: xbi; cbi; xbi]
+
+Equals to:
+
+match (sp [:: cai; xai; xai] [:: xbi; cbi; xbi]) with (tai + tbi = [:: cai; xai; xai] `* [:: xbi; cbi; xbi]) => (tai, tbi) end
+
+*)
