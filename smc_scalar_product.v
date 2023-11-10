@@ -266,8 +266,8 @@ Definition acc_correct (xas xbs: list Z) (acc: Z * Z * list (Z * Z)) :=
 	let yas := unzip1 ys in
 	let ybs := unzip2 ys in
 	let head_y := head (0, 0) ys in
-	let ca_ := head_y.1 - head 0 xas in
-	let cb_ := head_y.2 - head 0 xbs in
+	let ca_ := head_y.1 - head 0 xa_n in
+	let cb_ := head_y.2 - head 0 xb_n in
 	yas `+ ybs = xa_n `+ xb_n /\ ca_ = ca /\ cb_ = cb /\ (0 < size ys <= size xas)%nat /\ (size xas = size xbs).
 
 (* We have the carry bit actually: y_i = x_i + c_i *)
@@ -317,7 +317,7 @@ Definition zn_to_z2 (sps: list SMC) (xas xbs: list Z): (list Z * list Z) :=
 	       [:: (x2,x1), (x1, x0) ]
 	*)
 	let xas'' := zip xas (behead xas) 
-
+(*TODO: rev the states here because the computation needs to start from RHS*)
 	let xas' := behead (zip (cons 0 xas) xas) in
 	let xbs' := behead (zip (cons 0 xbs) xbs) in
 
