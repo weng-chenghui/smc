@@ -99,12 +99,18 @@ Admitted.
 Lemma dot_productDr (aa bb cc : list Z) : aa `* (bb `+ cc) = aa `* bb + aa `* cc.
 Admitted.
 
-Lemma scalar_product_correct (Ra Rb : list Z) (ra yb : Z) (Xa Xb : list Z) :
+Definition SMC := list Z -> list Z -> (Z * Z).
+
+Definition is_scalar_product (sp: SMC) :=
+	forall(Xa Xb: list Z),
+	let (ya, yb') := sp Xa Xb in
+	ya + yb' = Xa `* Xb.
+
+Lemma scalar_product_correct (Ra Rb : list Z) (ra yb : Z) :
   let rb := scalar_product_commidity_rb Ra Rb ra in
-  let (ya, yb') := scalar_product Ra Rb ra rb yb Xa Xb in
-  ya + yb' = Xa `* Xb.
+  is_scalar_product (scalar_product Ra Rb ra rb yb).
 Proof.
-simpl.
+move=>/=Xa Xb/=.
 rewrite /scalar_product_alice_fin.
 rewrite /scalar_prduct_bob_step2.
 rewrite /scalar_product_alice_step1.
@@ -123,7 +129,7 @@ Proof.
 	done.
 Qed.
 
-Definition SMC := list Z -> list Z -> (Z * Z).
+
 
 Definition preset_sp (Ra Rb: list Z) (ra yb: Z): SMC :=
 	scalar_product Ra Rb ra (scalar_product_commidity_rb Ra Rb ra) yb. 
@@ -285,6 +291,44 @@ Definition zn_to_z2_folder (acc: list (Z * Z * (Z * Z))) (curr: (SMC * ((Z * Z) 
 	| (ca, cb, (ya, yb)) => zn_to_z2_step2_2 (zn_to_z2_step2_1 sp ca cb xa xb) (ca, cb) (xa, xb) (xa', xb') :: acc
 	end.
 
+(*
+(x1,x2) 􏰀→ ((y10,...,y1k),(y20,...,y2k)), such that
+(ykyk−1···y1y0)2 =x1+x2
+
+( ya_(k-1)....ya_0 
+  yb_(k-1)....yb_0
+)
+
+=
+(y_k-1...y0)2 = (xa + xb)2
+
+*)
+
+Definition acc_correct (xas xbs: list Z) (acc: list (Z * Z * (Z * Z))) :=
+	let xa_n := take (size acc) xas in
+	let xb_n := take (size acc) xbs in
+	let yas := unzip1 (unzip2 acc) in
+	let ybs := unzip2 (unzip2 acc) in
+	yas `+ ybs = xa_n `+ xb_n.
+
+
+(*
+
+c_i+1 = c_i * xa + ci * xb + xai*xbi
+*)
+
+Lemma zn_to_z2_folder_correct acc curr (xas xbs: list Z):
+
+	let acc' := zn_to_z2_folder acc curr in
+	is_scalar_product curr.1 -> 
+Proof:
+
+Abort.
+
+
+
+
+
 (* Note: cannot put x0a and x0b in lists because they need to be the init vars specified in params.
    Taking them from the xas and xbs will make two cases: if the lists are empty, cannot taking them.
    So if we don't want to be bothered by using dependant type just for guaranteeing that we have x0a and x0b,
@@ -310,10 +354,14 @@ Definition zn_to_z2 (sps: list SMC) (x0a x0b: Z) (xas xbs: list Z): (list Z * li
 	   bhead
 	       [:: (x2,x1), (x1, x0) ]
 	*)
+	let xas'' := zip xas (behead xas) 
+
 	let xas' := behead (zip (cons 0 xas) xas) in
 	let xbs' := behead (zip (cons 0 xbs) xbs) in
-	let init := [:: (0, 0, (x0a, x0b))] in  (* For party A,B: c0=0, y0=x0 *)
+
+	let init := (0, 0, [:: (x0a, x0b)]) in  (* For party A,B: c0=0, y0=x0 *)
 	let list_of_pairs := foldl zn_to_z2_folder init (zip sps (zip xas' xbs')) in
+	let y_bits := map list_of_pairs
 	let ya_bits := map (fun '(ca, cb, (ya, yb)) => ya) list_of_pairs in
 	let yb_bits := map (fun '(ca, cb, (ya, yb)) => yb) list_of_pairs in
 	(ya_bits, yb_bits).
