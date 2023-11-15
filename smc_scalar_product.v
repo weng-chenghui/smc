@@ -259,34 +259,78 @@ Definition zn_to_z2_folder (acc: Z * Z * list (Z * Z)) (curr: (SMC * ((Z * Z) * 
 
 *)
 
+
+(*
+    xa_n, xb_n: the rest bits of input x hasn't been used in iterations.
+	ys: a list of pairs contain all computated bits.
+	ca_, cb_: from the paper step 2.b, y_i+1 = x_i+1 + c_i+1, so
+	          the correct ca and cb should be implied from the latest (ya_i - xa_i) and (yb_i - xb_i) .
+
+	Therefore, for each iteration by the zn_to_z2_folder, the correctness of `acc` means
+	keeping the loop invariants listed here, from the first init acc of the 0th iteration,
+	to the final acc of the (k-1)th iteration.
+*)
 Definition acc_correct (xas xbs: list Z) (acc: Z * Z * list (Z * Z)) :=
 	let '(ca, cb, ys) := acc in
 	let xa_n := drop (size xas - size ys) xas in
 	let xb_n := drop (size xbs - size ys) xbs in
+	let xa_nth := head 0 xa_n in
+	let xb_nth := head 0 xb_n in
 	let yas := unzip1 ys in
 	let ybs := unzip2 ys in
 	let head_y := head (0, 0) ys in
-	let ca_ := head_y.1 - head 0 xa_n in
-	let cb_ := head_y.2 - head 0 xb_n in
-	yas `+ ybs = xa_n `+ xb_n /\ ca_ = ca /\ cb_ = cb /\ (0 < size ys <= size xas)%nat /\ (size xas = size xbs).
-
-(* We have the carry bit actually: y_i = x_i + c_i *)
+	let ca_ := head_y.1 - xa_nth in
+	let cb_ := head_y.2 - xb_nth in
+	yas `+ ybs = xa_n `+ xb_n /\	(* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
+	ca_ = ca /\ cb_ = cb /\			(* Correctness 2: from step 2.b, the `c_i+1` that derived from `y_i+1` and `x_i+1`, should be equal to `c` we just folded in `acc` *)
+	(0 < size ys <= size xas)%nat /\ (size xas = size xbs).	(* Other basic assumptions. *)
 
 Lemma zn_to_z2_folder_correct acc curr (xas xbs: list Z):
 	let acc' := zn_to_z2_folder acc curr in
-	(* can prove carry bits are correct this time because we now have i and i+1*)
+	(* Here we can prove carry bits are correct because we now have the ith and (i+1)th step.
+	   While in the `zn_to_z2_step2_1_correct` Lemma, there is no step i and i+1 at the same time,
+	   so we cannot prove them there.
+	*)
+	(* We prove the folder is correct by induction, with an extra premises:
+
+	   1. (premises) If the SMC operation in curr is a SMC scalar_product (which has been proved correct),
+
+	   2. And by the hypothesis that zn_to_z2_folder_correct holds at ith step == its result acc is correct
+	   
+	   3. This should implies that the (i+1)th step is also correct.
+
+	   Then we show that zn_to_z2_folder is correct for all inputs during all iterations.
+	*)
 	is_scalar_product curr.1 -> acc_correct xas xbs acc -> acc_correct xas xbs acc'.
 Proof.
+(* Spliting and moving all parameters to the proof context; for once we unwrap the acc_correct we will need them *)
 case: acc=>[[ca cb] ys].
-case: curr=>[smc [[xa xa'] [xb xb']]].
-move=>/=t_from_sp_correct.
+case: curr=>[smc [[xa xa'] [xb xb']]]. 
+move=>/=t_from_zn_to_z2_step2_1_correct.
+(* After moving the premises to the proof context, move acc_correct's hypothesis to the proof context *)
 case=>[y_correct [ca_correct [cb_correct [y_not_empty xas_xbs_size_eq]]]].
+(* We destruct ys to its head and tail _in the proof context_. *)
 destruct ys as [|[y tail]]=>//.
+(* Then we can unwrap the acc_correct, and do simplification. *)
 rewrite /acc_correct/=.
-have:=zn_to_z2_step2_1_correct smc ca cb xa xb t_from_sp_correct.
+(* We see zn_to_z2_step2_1, so immediately apply the zn_to_z2_step2_1_correct lemma with all parameters,
+   and immediately apply it to the goal. *)
+have:=zn_to_z2_step2_1_correct smc ca cb xa xb t_from_zn_to_z2_step2_1_correct.
 destruct zn_to_z2_step2_1 as [tai tbi].
+(* Simplify the proof context. Because now we have tai, tbi, ca, cb... and other things we want. *)
 simpl in *.
 move=>t_equation/=.
+split.
+2:{
+	split.	(* Correctness 2 in acc_correct: the `c` is correct at each step *)
+	1:{	(* ca is correct *) (* attempt: try to unwrap `tai` to ca, xa, cb, xb... so they can be simplified at once? *)
+		apply ca_correct.
+	}
+	2:{	(* cb is correct *)
+		split.
+	}
+}
+
 
 Abort.
 
@@ -316,14 +360,11 @@ Definition zn_to_z2 (sps: list SMC) (xas xbs: list Z): (list Z * list Z) :=
 	   bhead
 	       [:: (x2,x1), (x1, x0) ]
 	*)
-	let xas'' := zip xas (behead xas) 
-(*TODO: rev the states here because the computation needs to start from RHS*)
-	let xas' := behead (zip (cons 0 xas) xas) in
-	let xbs' := behead (zip (cons 0 xbs) xbs) in
-
+	let xas' := rev (zip xbs (behead xas))  in
+	let xbs' := rev (zip xbs (behead xbs))  in
 	let init := (0, 0, [:: (x0a, x0b)]) in  (* For party A,B: c0=0, y0=x0 *)
 	let list_of_pairs := foldl zn_to_z2_folder init (zip sps (zip xas' xbs')) in
-	let y_bits := map list_of_pairs
+	let y_bits := map list_of_pairs in
 	let ya_bits := map (fun '(ca, cb, (ya, yb)) => ya) list_of_pairs in
 	let yb_bits := map (fun '(ca, cb, (ya, yb)) => yb) list_of_pairs in
 	(ya_bits, yb_bits).
