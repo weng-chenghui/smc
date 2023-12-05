@@ -54,7 +54,7 @@ Definition scalar_product_alice_step1 (Xa Ra: list nat): list nat :=
 (* Alice: get ya in the SMC scalar-product. *)
 (* TODO: Coq truncates negative result to 0; should we impose a restriction that t >= (Ra `* X'b) + ra *)
 Definition scalar_product_alice_fin (X'b Ra: list nat) (ra t: nat): nat :=
-	(t - (Ra `* X'b) + ra).
+	if t >= (Ra `* X'b) + ra then (t - (Ra `* X'b) + ra) else 0.
 
 (* Bob: get X'b and pass it to Alice *)
 Definition scalar_product_bob_step1 (Xb Rb: list nat): list nat :=
