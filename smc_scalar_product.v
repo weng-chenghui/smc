@@ -1,5 +1,6 @@
+From Coq Require Import Arith.
 From mathcomp Require Import ssreflect eqtype ssrbool ssrnat seq tuple ssrfun.
-Require Import ssrZ ZArith_ext uniq_tac ssrnat_ext.
+Require Import uniq_tac ssrnat_ext.
 
 
 (* Because I'm not sure which vector lib I should use,
@@ -23,13 +24,14 @@ Fixpoint nth_element {A : Type} (n : nat) (l : list A) : option A :=
 	| _, _ => None
 	end.
 
-Definition dotproduct (la lb: list Z) : Z :=
+
+Definition dotproduct (la lb: list nat) : nat :=
 	foldl (fun sum current => sum + current) 0 (zipWith (fun a b => a * b) la lb).
 
-Definition add (la lb: list Z) : list Z :=
+Definition add (la lb: list nat) : list nat :=
 	zipWith (fun a b => a + b) la lb.
 
-Definition add_mod2 (la lb: list Z) : list Z :=
+Definition add_mod2 (la lb: list nat) : list nat :=
 	zipWith (fun a b => (a + b) mod 2) la lb.
 
 Reserved Notation "la '`*' lb" (at level 40, format "'[' la  `*  lb ']'").
@@ -41,43 +43,47 @@ Notation "la '`+' lb" := (add la lb).
 Reserved Notation "la '`+_2' lb" (at level 50, format "'[' la  `+_2  lb ']'").
 Notation "la '`+_2' lb" := (add_mod2 la lb).
 
-Eval compute in (([::1;2] `+ [::1;2;3]) `* [::-1;-2]).
+Eval compute in (([::1;2] `+ [::1;2;3]) `* [::0;2]).
 
 (* ---- SMC Scalar-product ---- *)
 
 (* Alice: get X'a and pass it to Bob *)
-Definition scalar_product_alice_step1 (Xa Ra: list Z): list Z :=
+Definition scalar_product_alice_step1 (Xa Ra: list nat): list nat :=
 	Xa `+ Ra.
  
 (* Alice: get ya in the SMC scalar-product. *)
-Definition scalar_product_alice_fin (X'b Ra: list Z) (ra t: Z): Z :=
+Definition scalar_product_alice_fin (X'b Ra: list nat) (ra t: nat): nat :=
 	(t - (Ra `* X'b) + ra).
 
 (* Bob: get X'b and pass it to Alice *)
-Definition scalar_prduct_bob_step1 (Xb Rb: list Z): list Z :=
+Definition scalar_prduct_bob_step1 (Xb Rb: list nat): list nat :=
 	Xb `+ Rb.
 
 (* Bob: receive X'a from Alice and get `t` then pass it to Alice *)
-Definition scalar_prduct_bob_step2 (Xb X'a: list Z) (rb yb: Z): Z :=
+Definition scalar_prduct_bob_step2 (Xb X'a: list nat) (rb yb: nat): nat :=
 	(Xb `* X'a) + rb - yb.
 
-Definition scalar_product_bob_step_fin (yb: Z): Z :=
+Definition scalar_product_bob_step_fin (yb: nat): nat :=
 	yb.
 
 (* Because `rb` is not generated from RNG:
    rb =  Ra . Rb - ra
 *)
-Definition scalar_product_commidity_rb (Ra Rb: list Z) (ra: Z): Z :=
+(* TODO: Coq truncates negative result to 0; should we impose a restriction that Ra `* Rb > ra *)
+Definition scalar_product_commidity_rb (Ra Rb: list nat) (ra: nat): nat :=
 	(Ra `* Rb) - ra.
 
-Definition scalar_product (Ra Rb: list Z) (ra rb yb: Z) (Xa Xb: list Z): (Z * Z) :=
+Definition commodity_correct (Ra Rb: list nat) (ra: nat) :=
+	ra >= (Ra `* Rb).
+
+Definition scalar_product (Ra Rb: list nat) (ra rb yb: nat) (Xa Xb: list nat): (nat * nat) :=
 	let X'a := scalar_product_alice_step1 Xa Ra in
 	let X'b := scalar_prduct_bob_step1 Xb Rb in
 	let t := scalar_prduct_bob_step2 Xb X'a rb yb in
 	let ya := scalar_product_alice_fin X'b Ra ra t in
 	(scalar_product_alice_fin X'b Ra ra t, scalar_product_bob_step_fin yb).
 
-Definition demo_Alice3_Bob2 : (Z * Z) :=
+Definition demo_Alice3_Bob2 : (nat * nat) :=
 	let Ra := [:: 9 ] in
 	let Rb := [:: 8 ] in
 	let ra := 13 in
@@ -93,20 +99,20 @@ Definition demo_Alice3_Bob2 : (Z * Z) :=
 
 *)
 
-Lemma dot_productC (aa bb : list Z) : aa `* bb = bb `* aa.
+Lemma dot_productC (aa bb : list nat) : aa `* bb = bb `* aa.
 Admitted.
 
-Lemma dot_productDr (aa bb cc : list Z) : aa `* (bb `+ cc) = aa `* bb + aa `* cc.
+Lemma dot_productDr (aa bb cc : list nat) : aa `* (bb `+ cc) = aa `* bb + aa `* cc.
 Admitted.
 
-Definition SMC := list Z -> list Z -> (Z * Z).
+Definition SMC := list nat -> list nat -> (nat * nat).
 
 Definition is_scalar_product (sp: SMC) :=
-	forall(Xa Xb: list Z),
+	forall(Xa Xb: list nat),
 	let (ya, yb') := sp Xa Xb in
 	ya + yb' = Xa `* Xb.
 
-Lemma scalar_product_correct (Ra Rb : list Z) (ra yb : Z) :
+Lemma scalar_product_correct (Ra Rb : list nat) (ra yb : nat) :
   let rb := scalar_product_commidity_rb Ra Rb ra in
   is_scalar_product (scalar_product Ra Rb ra rb yb).
 Proof.
@@ -128,8 +134,6 @@ Proof.
 	compute.
 	done.
 Qed.
-
-
 
 Definition preset_sp (Ra Rb: list Z) (ra yb: Z): SMC :=
 	scalar_product Ra Rb ra (scalar_product_commidity_rb Ra Rb ra) yb. 
@@ -279,8 +283,8 @@ Definition acc_correct (xas xbs: list Z) (acc: Z * Z * list (Z * Z)) :=
 	let yas := unzip1 ys in
 	let ybs := unzip2 ys in
 	let head_y := head (0, 0) ys in
-	let ca_ := head_y.1 - xa_nth in
-	let cb_ := head_y.2 - xb_nth in
+	let ca_ := (head_y.1 - xa_nth) mod 2 in
+	let cb_ := (head_y.2 - xb_nth) mod 2 in
 	yas `+ ybs = xa_n `+ xb_n /\	(* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
 	ca_ = ca /\ cb_ = cb /\			(* Correctness 2: from step 2.b, the `c_i+1` that derived from `y_i+1` and `x_i+1`, should be equal to `c` we just folded in `acc` *)
 	(0 < size ys <= size xas)%nat /\ (size xas = size xbs).	(* Other basic assumptions. *)
