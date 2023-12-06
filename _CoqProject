@@ -1,4 +1,6 @@
-smc_scalar_product.v
+smc_scalar_product_z.v
+smc_scalar_product_nat.v
+smc_scalar_product_with_mca.v
 
 -R ../seplog seplog
 -R . smccoq

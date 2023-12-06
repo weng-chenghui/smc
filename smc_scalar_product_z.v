@@ -255,6 +255,29 @@ Definition zn_to_z2_int4 (sps: 4.-tuple SMC) (xas xbs: 4.-tuple Z): (4.-tuple Z 
 	([tuple y3.1;y2.1;y1.1;x0.1], [tuple y3.2;y2.2;y1.2;x0.2]).
 
 
+Definition to_dec_int4 (x: (4.-tuple Z)) : Z :=
+	1 * [tnth x 0] + 2 * [tnth x 0] + 4 * [tnth x 0] + 8 * [tnth x 0].
+
+Lemma zn_to_z2_int4_correct (sps: 4.-tuple SMC) (xas xbs: 4.-tuple Z):
+	is_scalar_product [tnth sps 0] ->
+	is_scalar_product [tnth sps 1] ->
+	is_scalar_product [tnth sps 2] ->
+	is_scalar_product [tnth sps 3] ->
+	let x0 := ([tnth xas 0], [tnth xbs 0]) in
+	let x1 := ([tnth xas 1], [tnth xbs 1]) in
+	let x2 := ([tnth xas 2], [tnth xbs 2]) in
+	let x3 := ([tnth xas 3], [tnth xbs 3]) in
+	let (yas, ybs) := zn_to_z2_int4 sps xas xbs in
+	(to_dec_int4 [tuple x3.1; x2.1; x1.1; x0.1]) + (to_dec_int4 [tuple x3.2; x2.2; x1.2; x0.2]) =
+	(to_dec_int4 yas) + (to_dec_int4 ybs).
+Proof.
+move=>/=s1 s2 s3 s4/=.
+rewrite /to_dec_int4.
+Abort.
+	
+
+
+
 Definition zn_to_z2_folder (acc: Z * Z * list (Z * Z)) (curr: (SMC * ((Z * Z) * (Z * Z)))): Z * Z * list(Z * Z) :=
 	let '(sp, ((xa, xa'), (xb, xb'))) := curr in
 	let '(ca, cb, ys) := acc in 
