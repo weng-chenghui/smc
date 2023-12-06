@@ -54,7 +54,7 @@ Definition scalar_product_alice_step1 (Xa Ra: list nat): list nat :=
 (* Alice: get ya in the SMC scalar-product. *)
 (* TODO: Coq truncates negative result to 0; should we impose a restriction that t >= (Ra `* X'b) + ra *)
 Definition scalar_product_alice_fin (X'b Ra: list nat) (ra t: nat): nat :=
-	if t >= (Ra `* X'b) + ra then (t - (Ra `* X'b) + ra) else 0.
+	t - (Ra `* X'b) + ra.
 
 (* Bob: get X'b and pass it to Alice *)
 Definition scalar_product_bob_step1 (Xb Rb: list nat): list nat :=
@@ -79,10 +79,10 @@ Definition scalar_product_commidity_rb (Ra Rb: list nat) (ra: nat): nat :=
 Definition commodity_correct (Ra Rb: list nat) (ra: nat) :=
 	(Ra `* Rb) >= ra.
 
-Definition scalar_product_bob_step2_correct (Xb X'a: list nat) (rb yb: nat) :=
+Definition bob_step2_correct (Xb X'a: list nat) (rb yb: nat) :=
 	(Xb `* X'a) + rb >= yb.
 
-Definition scalar_product_alice_fin_correct (X'b Ra: list nat) (ra t: nat) :=
+Definition alice_fin_correct (X'b Ra: list nat) (ra t: nat) :=
 	t >= (Ra `* X'b) + ra.
 
 Definition scalar_product (Ra Rb: list nat) (ra rb yb: nat) (Xa Xb: list nat): (nat * nat) :=
@@ -90,7 +90,9 @@ Definition scalar_product (Ra Rb: list nat) (ra rb yb: nat) (Xa Xb: list nat): (
 	let X'b := scalar_product_bob_step1 Xb Rb in
 	let t := scalar_product_bob_step2 Xb X'a rb yb in
 	let ya := scalar_product_alice_fin X'b Ra ra t in
-	(scalar_product_alice_fin X'b Ra ra t, scalar_product_bob_step_fin yb).
+	if commodity_correct Ra Rb ra && bob_step2_correct Xb X'a rb yb && alice_fin_correct X'b Ra ra t then
+		(scalar_product_alice_fin X'b Ra ra t, scalar_product_bob_step_fin yb)
+	else (0, 0).
 
 Definition demo_Alice3_Bob2 : (nat * nat) :=
 	let Ra := [:: 9 ] in
@@ -121,34 +123,15 @@ Definition is_scalar_product (sp: SMC) :=
 	let (ya, yb') := sp Xa Xb in
 	ya + yb' = Xa `* Xb.
 
-Definition scalar_product_correct_nat_conditions (Ra Rb: list nat) (ra rb yb: nat) (Xa Xb: list nat) :=
-	let X'a := scalar_product_alice_step1 Xa Ra in
-	let X'b := scalar_product_bob_step1 Xb Rb in
-	let t := scalar_product_bob_step2 Xb X'a rb yb in
-	let ya := scalar_product_alice_fin X'b Ra ra t in
-	commodity_correct Ra Rb ra /\
-	scalar_product_bob_step2_correct Xb X'a rb yb /\
-	scalar_product_alice_fin_correct X'b Ra ra t.
-
 Lemma scalar_product_correct (Ra Rb : list nat) (ra yb : nat) :
-  forall(Xa Xb: list nat),
   let rb := scalar_product_commidity_rb Ra Rb ra in
-  scalar_product_correct_nat_conditions Ra Rb ra rb yb Xa Xb ->
   is_scalar_product (scalar_product Ra Rb ra rb yb).
 Proof.
+move=>rb.
 move=>/=Xa Xb/=.
-move=>/=nat_conds/=.
 rewrite /scalar_product_commidity_rb.
-rewrite /scalar_product.
-rewrite /scalar_product_alice_step1.
-rewrite /scalar_product_alice_fin.
-rewrite /scalar_product_bob_step1.
-rewrite /scalar_product_bob_step2.
-rewrite /scalar_product_bob_step_fin.
-rewrite !dot_productDr.
-rewrite (dot_productC Xb Xa).
-rewrite (dot_productC Xb Ra).
-Qed.
+destruct scalar_product as [ya yb'].
+Abort.
 
 Lemma demo_smc_scalar_product: fst demo_Alice3_Bob2 + snd demo_Alice3_Bob2 = 3 * 2.
 Proof.

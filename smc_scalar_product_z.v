@@ -256,7 +256,7 @@ Definition zn_to_z2_int4 (sps: 4.-tuple SMC) (xas xbs: 4.-tuple Z): (4.-tuple Z 
 
 
 Definition to_dec_int4 (x: (4.-tuple Z)) : Z :=
-	1 * [tnth x 0] + 2 * [tnth x 0] + 4 * [tnth x 0] + 8 * [tnth x 0].
+	1 * [tnth x 0] + 2 * [tnth x 1] + 4 * [tnth x 2] + 8 * [tnth x 3].
 
 Lemma zn_to_z2_int4_correct (sps: 4.-tuple SMC) (xas xbs: 4.-tuple Z):
 	is_scalar_product [tnth sps 0] ->
@@ -272,11 +272,8 @@ Lemma zn_to_z2_int4_correct (sps: 4.-tuple SMC) (xas xbs: 4.-tuple Z):
 	(to_dec_int4 yas) + (to_dec_int4 ybs).
 Proof.
 move=>/=s1 s2 s3 s4/=.
-rewrite /to_dec_int4.
 Abort.
 	
-
-
 
 Definition zn_to_z2_folder (acc: Z * Z * list (Z * Z)) (curr: (SMC * ((Z * Z) * (Z * Z)))): Z * Z * list(Z * Z) :=
 	let '(sp, ((xa, xa'), (xb, xb'))) := curr in
@@ -284,7 +281,7 @@ Definition zn_to_z2_folder (acc: Z * Z * list (Z * Z)) (curr: (SMC * ((Z * Z) * 
 	match head (0, 0) ys with (* get previous ca, cb and use them to calculate the new result, and push the new result to the acc list*)
 	| (ya, yb) => 
 		let '(cs, yab) := 
-			zn_to_z2_step2_2 (zn_to_z2_step2_1 sp ca cb xa xb) (ca, cb) (xa, xb) (xa', xb')
+			zn_to_z2_step2_2 (zn_to_z2_step2_1 sp (ca, cb) (xa, xb)) (ca, cb) (xa, xb) (xa', xb')
 		in (cs, yab :: ys)
 	end.
 
@@ -357,7 +354,7 @@ destruct ys as [|[y tail]]=>//.
 rewrite /acc_correct/=.
 (* We see zn_to_z2_step2_1, so immediately apply the zn_to_z2_step2_1_correct lemma with all parameters,
    and immediately apply it to the goal. *)
-have:=zn_to_z2_step2_1_correct smc ca cb xa xb t_from_zn_to_z2_step2_1_correct.
+have:=zn_to_z2_step2_1_correct smc (ca, cb) (xa, xb) t_from_zn_to_z2_step2_1_correct.
 destruct zn_to_z2_step2_1 as [tai tbi].
 (* Simplify the proof context. Because now we have tai, tbi, ca, cb... and other things we want. *)
 simpl in *.
