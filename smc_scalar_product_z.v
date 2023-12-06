@@ -1,4 +1,4 @@
-From mathcomp Require Import ssreflect eqtype ssrbool ssrnat seq tuple ssrfun.
+From mathcomp Require Import ssreflect eqtype ssrbool ssrnat seq tuple ssrfun fintype.
 Require Import ssrZ ZArith_ext uniq_tac ssrnat_ext.
 
 
@@ -208,33 +208,52 @@ Fixpoint commodities (Ras Rbs: list (list Z)) (ras ybs: list Z): list SMC :=
    Xa + Xb = X = (yk yk-1 ... y1 y0)2, where yi = (yia + yib) mod 2
 *)
 
-Definition zn_to_z2_step2_1 (sp: SMC) (cai cbi xai xbi: Z) : (Z * Z) :=
-	sp [:: cai; xai; xai] [:: xbi; cbi; xbi].
+Definition zn_to_z2_step2_1 (sp: SMC) (ci xi: (Z * Z)) : (Z * Z) :=
+	sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2].
 
 (* Step 2 for two party. *)
-Definition zn_to_z2_step2_2 (tai_tbi: Z * Z) (ci xi xi' : Z * Z) :
+Definition zn_to_z2_step2_2 (ti: Z * Z) (ci xi xi' : Z * Z) :
   (Z * Z) * (Z * Z) :=
-	let (tai, tbi) := tai_tbi in
-	let cai' := (ci.1 * xi.1 + tai) mod 2 in
-	let cbi' := (ci.2 * xi.2 + tbi) mod 2 in
+	let cai' := (ci.1 * xi.1 + ti.1) mod 2 in
+	let cbi' := (ci.2 * xi.2 + ti.2) mod 2 in
 	let yai' := (xi'.1 + cai') mod 2 in
 	let ybi' := (xi'.2 + cbi') mod 2 in
 	((cai', cbi'), (yai', ybi')).
-
 
 (* Shows it is correct if the `sp` fed to the step_2_1 is a SMC scalar-product. *)
 (* Because SMC scalar-product its correctness also relies on all parameters from Ra to yb,
    parameters for both scalar_product and zn_to_z2_step2_1 are all listed.
 *)
-Lemma zn_to_z2_step2_1_correct (sp: SMC) (cai cbi xai xbi: Z) :
+Lemma zn_to_z2_step2_1_correct (sp: SMC) (ci xi: Z * Z) :
 	is_scalar_product sp ->
-	let alice_input := [:: cai; xai; xai] in
-	let bob_input := [:: xbi; cbi; xbi] in
-	let (tai, tbi) := zn_to_z2_step2_1 sp cai cbi xai xbi in
+	let alice_input := [:: ci.1; xi.1; xi.1] in
+	let bob_input := [:: xi.2; ci.2; xi.2] in
+	let (tai, tbi) := zn_to_z2_step2_1 sp ci xi in
 	tai + tbi = alice_input `* bob_input .
 Proof.
 apply.
 Qed.
+
+
+(* Note: xas and xbs are bit vector, so Z elements inside are only 1 or 0, from high to low bits*)
+Definition zn_to_z2_int4 (sps: 4.-tuple SMC) (xas xbs: 4.-tuple Z): (4.-tuple Z * 4.-tuple Z) :=
+	let x0 := ([tnth xas 0], [tnth xas 0]) in
+	let x1 := ([tnth xas 1], [tnth xas 1]) in
+	let x2 := ([tnth xas 2], [tnth xas 2]) in
+	let x3 := ([tnth xas 3], [tnth xas 3]) in
+	let s0 := [tnth sps 0] in
+	let s1 := [tnth sps 1] in
+	let s2 := [tnth sps 2] in
+	let s3 := [tnth sps 3] in
+	let c0 := (0,0) in
+	let t0 := zn_to_z2_step2_1 s0 c0 x1 in
+	let (c1, y1) := zn_to_z2_step2_2 t0 c0 x0 x1 in
+	let t1 := zn_to_z2_step2_1 s1 c1 x2 in
+	let (c2, y2) := zn_to_z2_step2_2 t1 c1 x1 x2 in
+	let t2 := zn_to_z2_step2_1 s0 c2 x3 in
+	let (c3, y3) := zn_to_z2_step2_2 t2 c2 x2 x1 in
+	([tuple y3.1;y2.1;y1.1;x0.1], [tuple y3.2;y2.2;y1.2;x0.2]).
+
 
 Definition zn_to_z2_folder (acc: Z * Z * list (Z * Z)) (curr: (SMC * ((Z * Z) * (Z * Z)))): Z * Z * list(Z * Z) :=
 	let '(sp, ((xa, xa'), (xb, xb'))) := curr in
