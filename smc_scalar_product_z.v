@@ -380,7 +380,7 @@ Abort.
    putting them in the param list seems easier.
 *)
 (* result: ([ya_k...ya_0], [yb_k...yb_0]) *)
-Definition zn_to_z2 (sps: list SMC) (xas xbs: list Z): (list Z * list Z) :=
+Definition zn_to_z2 (sps: list SMC) (x0a x0b) (xas xbs: list Z): (list Z * list Z) :=
 	(* What we need actually is: [:: (x2, x1); (x1, x0)] from high to low bits,
 	   with overlapping element in each time we do foldering.
 	   

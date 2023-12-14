@@ -132,8 +132,7 @@ Let B := bool_comRingType.
 
 (* vectors of B *)
 
-Definition zn_to_z2_step2_1 (sp: SMC B) (ci xi: (B * B)) : (B * B) :=
-	sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2].
+
 
 (* Step 2 for two party. *)
 Definition zn_to_z2_step2_2 (ti: B * B) (ci xi xi' : B * B) :
@@ -143,6 +142,9 @@ Definition zn_to_z2_step2_2 (ti: B * B) (ci xi xi' : B * B) :
 	let yai' := (xi'.1 + cai') in
 	let ybi' := (xi'.2 + cbi') in
 	((cai', cbi'), (yai', ybi')).
+
+Definition zn_to_z2_step2_1 (sp: SMC B) (ci xi: (B * B)) : (B * B) :=
+	sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2].
 
 Lemma zn_to_z2_step2_1_correct (sp: SMC B) (ci xi: B * B) :
 	is_scalar_product sp ->
@@ -154,15 +156,9 @@ Proof.
 apply.
 Qed.
 
-Check iteri.
-
-(*let y := ([tnth xas 0], [tnth xbs 0]) in*)
-
 Section zn_to_z2_ntuple.
 
 Variable (n: nat) (sps: n.-tuple (SMC B)) (xas xbs: n.+1.-tuple B).
-
-Check leqnSn.
 
 (*acc: carry-bit Alice, Bob will receive; results Alice, bob will receive*)
 Definition zn_to_z2_folder (acc: (B * B) * list (B * B)) (i: 'I_n): B * B * list(B * B) :=
@@ -195,46 +191,14 @@ Definition acc_correct (acc: (B * B) * list (B * B)) (i: 'I_n.+1) :=
 	let head_y := head (0, 0) ys in
 	let ca_ := head_y.1 - xa in
 	let cb_ := head_y.2 - xb in
-	yas `+ ybs = xa `+ xb /\	(* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
-	ca_ = ca /\ cb_ = cb.			(* Correctness 2: from step 2.b, the `c_i+1` that derived from `y_i+1` and `x_i+1`, should be equal to `c` we just folded in `acc` *)
+	yas `+ ybs = xas `+ xbs /\	(* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
+	ca_ = ca /\ cb_ = cb.		(* Correctness 2: from step 2.b, the `c_i+1` that derived from `y_i+1` and `x_i+1`, should be equal to `c` we just folded in `acc` *)
 
-
-End zn_to_z2_ntuple.
-
-(*
-Memo: correctness means to find relations among those terms.
-For example: `ca_ = head_y.1 - xa_nth must equal to `ca` from the acc` .
-In this relation:
-
-1. how ca relates to the list and its head is explained.
-2. how ca should relate to acc is explained.
-
-Things in the definition body will be explained such.
-*)
-
-(*
-curr: current scalar-product, xai, xbi, cai, cbi
-
-Definition curr_correct :=
-	*)
-
-(* Maybe: need an `i` parameter -- equal to the size
-
-i + size of y ==? size of xas
-*)
-Lemma zn_to_z2_folder_correct acc curr (xas xbs: list B):
-	let '(sp, ((xa, xa'), (xb, xb'))) := curr in
-	let '(ca', cb', ys') := zn_to_z2_folder acc curr in
-	let acc' := (ca', cb', ys') in
-	let xa_' := head 0 (drop (size xas - (size ys').+1) xas) in
-	let xb_' := head 0 (drop (size xbs - (size ys').+1) xbs) in
-	(* TODO: xa' and xb' are from input in every folding process,
-	   and xa_' and xb_' are from list by position by the length of current ys' .
-
-	   Having xa_' and xb_' we can relate the xa' and xb' with the lists (xas, xbs, ys),
-	   but in the proof this relation is not shown.
-	*)
-	is_scalar_product curr.1 -> acc_correct xas xbs acc xa xb -> acc_correct xas xbs acc' xa_' xb_'.
+Lemma zn_to_z2_folder_correct acc i:
+	let acc' := zn_to_z2_folder acc i in
+	let i_ := widen_ord (@leqnSn _) i in (* make it can use the implicit argument *)
+	let i' := lift ord0 i in
+	is_scalar_product (tnth sps i) -> acc_correct acc i_ -> acc_correct acc' i'.
 Proof.
 (* Spliting and moving all parameters to the proof context; for once we unwrap the acc_correct we will need them *)
 case: acc=>[[ca cb] ys].
@@ -248,8 +212,6 @@ move=>smc_correct.
 (* TODO: pause here because I feel I am introducing more and more symbols but not sure if they are helping the proof
    For example: ca' ca_' .... ys' and ys_'.
 *)
-
-
 move=>/=t_from_zn_to_z2_step2_1_correct.
 (* After moving the premises to the proof context, move acc_correct's hypothesis to the proof context *)
 case=>[xa_correct [xb_correct [y_correct [ca_correct [cb_correct [y_not_empty xas_xbs_size_eq]]]]]].
@@ -290,3 +252,19 @@ split.
 Abort.
 
 End zn_to_z2.
+*)
+
+End zn_to_z2_ntuple.
+
+
+
+(*
+Memo: correctness means to find relations among those terms.
+For example: `ca_ = head_y.1 - xa_nth must equal to `ca` from the acc` .
+In this relation:
+
+1. how ca relates to the list and its head is explained.
+2. how ca should relate to acc is explained.
+
+Things in the definition body will be explained such.
+*)
