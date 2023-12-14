@@ -202,16 +202,17 @@ Lemma zn_to_z2_folder_correct acc i:
 Proof.
 (* Spliting and moving all parameters to the proof context; for once we unwrap the acc_correct we will need them *)
 case: acc=>[[ca cb] ys].
-case: curr=>[smc [[xa xa'] [xb xb']]]. 
 (* destruct because we see the first let from zn_to_z2_folder above *)
 destruct zn_to_z2_folder as [p ys'].
 (* destruct because we see `let '(ca', cb') in p` *)
 destruct p as [ca' cb'].
 destruct acc' as [[ca_' cb_'] ys_'].
+move=>i_ i'.
 move=>smc_correct.
-(* TODO: pause here because I feel I am introducing more and more symbols but not sure if they are helping the proof
-   For example: ca' ca_' .... ys' and ys_'.
-*)
+rewrite /acc_correct/=.
+Abort.
+
+
 move=>/=t_from_zn_to_z2_step2_1_correct.
 (* After moving the premises to the proof context, move acc_correct's hypothesis to the proof context *)
 case=>[xa_correct [xb_correct [y_correct [ca_correct [cb_correct [y_not_empty xas_xbs_size_eq]]]]]].
