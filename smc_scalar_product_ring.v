@@ -154,9 +154,26 @@ Proof.
 apply.
 Qed.
 
-Definition zn_to_z2_folder (acc: B * B * list (B * B)) (curr: (SMC B * ((B * B) * (B * B)))): B * B * list(B * B) :=
-	let '(sp, ((xa, xa'), (xb, xb'))) := curr in
+Check iteri.
+
+(*let y := ([tnth xas 0], [tnth xbs 0]) in*)
+
+Section zn_to_z2_ntuple.
+
+Variable (n: nat) (sps: n.-tuple (SMC B)) (xas xbs: n.+1.-tuple B).
+
+Check leqnSn.
+
+(*acc: carry-bit Alice, Bob will receive; results Alice, bob will receive*)
+Definition zn_to_z2_folder (acc: (B * B) * list (B * B)) (i: 'I_n): B * B * list(B * B) :=
 	let '(ca, cb, ys) := acc in 
+	let sp := tnth sps i in
+	let i_ := widen_ord (@leqnSn _) i in (* make it can use the implicit argument *)
+	let i' := lift ord0 i in
+	let xa := tnth xas i_ in
+	let xa' := tnth xas i' in 
+	let xb := tnth xbs i_ in
+	let xb' := tnth xbs i' in 
 	match head (0, 0) ys with (* get previous ca, cb and use them to calculate the new result, and push the new result to the acc list*)
 	| (ya, yb) => 
 		let '(cs, yab) := 
@@ -164,22 +181,25 @@ Definition zn_to_z2_folder (acc: B * B * list (B * B)) (curr: (SMC B * ((B * B) 
 		in (cs, yab :: ys)
 	end.
 
-Definition acc_correct (xas xbs: list B) (acc: B * B * list (B * B)) xa xb :=
-	let '(ca, cb, ys) := acc in
-	let xa_n := drop (size xas - size ys) xas in
-	let xb_n := drop (size xbs - size ys) xbs in
-	let xa_nth := head 0 xa_n in
-	let xb_nth := head 0 xb_n in
+(* xs[0] = lowest bit *)
+Definition zn_to_z2 :=
+	let init := (0, 0, [:: (tnth xas 0, tnth xbs 0)]) in  (* For party A,B: c0=0, y0=x0 *)
+	foldl zn_to_z2_folder init (ord_tuple n) .
+
+Definition acc_correct (acc: (B * B) * list (B * B)) (i: 'I_n.+1) :=
+	let '((ca, cb), ys) := acc in
+	let xa := tnth xas i in
+	let xb := tnth xbs i in
 	let yas := unzip1 ys in
 	let ybs := unzip2 ys in
 	let head_y := head (0, 0) ys in
-	let ca_ := head_y.1 - xa_nth in
-	let cb_ := head_y.2 - xb_nth in
-	xa_nth = xa /\                 (* To relate the xa from curr in each iteration, with the one we fetch from the input list *)
-	xb_nth = xb /\
-	yas `+ ybs = xa_n `+ xb_n /\	(* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
-	ca_ = ca /\ cb_ = cb /\			(* Correctness 2: from step 2.b, the `c_i+1` that derived from `y_i+1` and `x_i+1`, should be equal to `c` we just folded in `acc` *)
-	(0 < size ys <= size xas)%nat /\ (size xas = size xbs).	(* Other basic assumptions. *)
+	let ca_ := head_y.1 - xa in
+	let cb_ := head_y.2 - xb in
+	yas `+ ybs = xa `+ xb /\	(* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
+	ca_ = ca /\ cb_ = cb.			(* Correctness 2: from step 2.b, the `c_i+1` that derived from `y_i+1` and `x_i+1`, should be equal to `c` we just folded in `acc` *)
+
+
+End zn_to_z2_ntuple.
 
 (*
 Memo: correctness means to find relations among those terms.
@@ -198,7 +218,7 @@ curr: current scalar-product, xai, xbi, cai, cbi
 Definition curr_correct :=
 	*)
 
-(* need an `i` parameter -- equal to the size
+(* Maybe: need an `i` parameter -- equal to the size
 
 i + size of y ==? size of xas
 *)
@@ -211,7 +231,7 @@ Lemma zn_to_z2_folder_correct acc curr (xas xbs: list B):
 	(* TODO: xa' and xb' are from input in every folding process,
 	   and xa_' and xb_' are from list by position by the length of current ys' .
 
-	   Having xa_' and xb_' should relate the xa' and xb' with the lists (xas, xbs, ys),
+	   Having xa_' and xb_' we can relate the xa' and xb' with the lists (xas, xbs, ys),
 	   but in the proof this relation is not shown.
 	*)
 	is_scalar_product curr.1 -> acc_correct xas xbs acc xa xb -> acc_correct xas xbs acc' xa_' xb_'.

@@ -399,7 +399,7 @@ Definition zn_to_z2 (sps: list SMC) (xas xbs: list Z): (list Z * list Z) :=
 	   bhead
 	       [:: (x2,x1), (x1, x0) ]
 	*)
-	let xas' := rev (zip xbs (behead xas))  in
+	let xas' := rev (zip xas (behead xas))  in
 	let xbs' := rev (zip xbs (behead xbs))  in
 	let init := (0, 0, [:: (x0a, x0b)]) in  (* For party A,B: c0=0, y0=x0 *)
 	let list_of_pairs := foldl zn_to_z2_folder init (zip sps (zip xas' xbs')) in
