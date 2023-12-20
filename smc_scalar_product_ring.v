@@ -161,10 +161,15 @@ Section zn_to_z2_ntuple.
 Variable (n: nat) (sps: n.-tuple (SMC B)) (xas xbs: n.+1.-tuple B).
 
 (*acc: carry-bit Alice, Bob will receive; results Alice, bob will receive*)
-Definition zn_to_z2_folder (acc: (B * B) * list (B * B)) (i: 'I_n): B * B * list(B * B) :=
-	let '(ca, cb, ys) := acc in 
+Definition zn_to_z2_folder (acc: list (B * B) * list (B * B)) (i: 'I_n): list (B * B) * list(B * B) :=
+	let (cs, ys) := acc in
+	let (ca, cb) := head (0, 0) cs in
 	let sp := tnth sps i in
-	let i_ := widen_ord (@leqnSn _) i in (* make it can use the implicit argument *)
+	(* (@...) make it can use the implicit argument *)
+	(* widen_ord type-cast from n to n+1 while keeping the value inside i the same *)
+	(* so that we can make i_ to access xs ends at n, not n - 1 *)
+	let i_ := widen_ord (@leqnSn _) i in
+	(* lift ord0 to add_one to i *)
 	let i' := lift ord0 i in
 	let xa := tnth xas i_ in
 	let xa' := tnth xas i' in 
@@ -172,28 +177,31 @@ Definition zn_to_z2_folder (acc: (B * B) * list (B * B)) (i: 'I_n): B * B * list
 	let xb' := tnth xbs i' in 
 	match head (0, 0) ys with (* get previous ca, cb and use them to calculate the new result, and push the new result to the acc list*)
 	| (ya, yb) => 
-		let '(cs, yab) := 
+		let '(cab, yab) := 
 			zn_to_z2_step2_2 (zn_to_z2_step2_1 sp (ca, cb) (xa, xb)) (ca, cb) (xa, xb) (xa', xb')
-		in (cs, yab :: ys)
+		in (cab :: cs, yab :: ys)
 	end.
 
 (* xs[0] = lowest bit *)
 Definition zn_to_z2 :=
-	let init := (0, 0, [:: (tnth xas 0, tnth xbs 0)]) in  (* For party A,B: c0=0, y0=x0 *)
+	let init := ([:: (0, 0)], [:: (tnth xas 0, tnth xbs 0)]) in  (* For party A,B: c0=0, y0=x0 *)
 	foldl zn_to_z2_folder init (ord_tuple n) .	
 
-Definition acc_correct (acc: (B * B) * list (B * B)) (i: 'I_n.+1) :=
-	let '((ca, cb), ys) := acc in
+Definition acc_correct (acc: list (B * B) * list (B * B)) (i: 'I_n.+1) :=
+	let '(cs, ys) := acc in
+	let (ca, cb) := head (0, 0) cs in
 	let xa := tnth xas i in
 	let xb := tnth xbs i in
+	let xas_so_far := take (size ys) xas in
+	let xbs_so_far := take (size ys) xbs in
 	let yas := unzip1 ys in
 	let ybs := unzip2 ys in
 	let head_y := head (0, 0) ys in
 	let ca_ := head_y.1 - xa in
 	let cb_ := head_y.2 - xb in
-	(*yas `+ ybs = xas_so_far `+ xbs_so_far /\	*)(* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
-	                            (* TODO: if we need to verify ys, we need to keep all past c_i in acc for verification, since yas `+ ybs = xas_so_far `+ xbs_so_far `+ cas_so_bar `+ cbs_so_bar *)
-	ca_ = ca /\ cb_ = cb.		(* Correctness 2: from step 2.b, the `c_i+1` that derived from `y_i+1` and `x_i+1`, should be equal to `c` we just folded in `acc` *)
+	yas `+ ybs = xas_so_far `+ xbs_so_far /\ (* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
+	ca_ = ca /\ cb_ = cb /\
+	(size xas_so_far = size xbs_so_far).		(* Correctness 2: from step 2.b, the `c_i+1` that derived from `y_i+1` and `x_i+1`, should be equal to `c` we just folded in `acc` *)
 
 Lemma zn_to_z2_folder_correct acc i:
 	let acc' := zn_to_z2_folder acc i in
@@ -201,16 +209,61 @@ Lemma zn_to_z2_folder_correct acc i:
 	let i' := lift ord0 i in
 	is_scalar_product (tnth sps i) -> acc_correct acc i_ -> acc_correct acc' i'.
 Proof.
-(* Spliting and moving all parameters to the proof context; for once we unwrap the acc_correct we will need them *)
-case: acc=>[[ca cb] ys].
-(* destruct because we see the first let from zn_to_z2_folder above *)
-destruct zn_to_z2_folder as [p ys'].
-(* destruct because we see `let '(ca', cb') in p` *)
-destruct p as [ca' cb'].
-destruct acc' as [[ca_' cb_'] ys_'].
+case: acc=>[cs ys].
+(* Memo: to peal acc' until we see zn_to_z2_step2_1_correct and then we can use `have:=zn_to_z2_step2_1_correct`,
+   we cannot just 
+
+   destruct zn_to_z2_folder as [cs' ys'].
+   ^^ this will just move the results to cs' ys' in the proof context and do no pealing.
+*)
+rewrite /zn_to_z2_folder.
+move=>/=is_sp.
+destruct cs as [|c0 ctail].
+destruct ys as [|y0 ytail].
+simpl.
+have:=zn_to_z2_step2_1_correct smc (ca, cb) (xa, xb).
+move=>acc' i_ i'.
+
+
+
+
+
+
+(* WRONG: destruct because we see the first let from zn_to_z2_folder above *)
+(* Because: before we can `have=>` it to pealing it until ta+tb reveal, directly get cs' and ys' from it
+   will not bring more information to the later proof steps.
+
+case: acc=>[cs ys].
+destruct zn_to_z2_folder as [cs' ys'].
+*)
+
+
+(* see: `let acc' := (cs', ys') in`, cannot destruct anymore, so use move *)
+move=>acc'.
 move=>i_ i'.
 move=>smc_correct.
+simpl.
+destruct cs as [|c0 ctail].
+destruct cs' as [|c0' ctail'].
+simpl.
+move=>[y_correct [ca_correct [cb_correct x_so_far_size_eq]]].
+move=>[y'_correct].
+split.
+2:{
+
+}
+split.
+
+
+
+move=>acc_correct.
 rewrite /acc_correct/=.
+destruct head as [ca cb].
+simpl in *.
+destruct head as [ya yb].
+case=>[ys_correct [ca_correct [cb_correct]]].
+
+move=>ca cb.
 case=>[y_correct [ca_correct cb_correct]].
 simpl in *.
 Abort.
