@@ -180,7 +180,7 @@ Definition zn_to_z2_folder (acc: (B * B) * list (B * B)) (i: 'I_n): B * B * list
 (* xs[0] = lowest bit *)
 Definition zn_to_z2 :=
 	let init := (0, 0, [:: (tnth xas 0, tnth xbs 0)]) in  (* For party A,B: c0=0, y0=x0 *)
-	foldl zn_to_z2_folder init (ord_tuple n) .
+	foldl zn_to_z2_folder init (ord_tuple n) .	
 
 Definition acc_correct (acc: (B * B) * list (B * B)) (i: 'I_n.+1) :=
 	let '((ca, cb), ys) := acc in
@@ -191,12 +191,13 @@ Definition acc_correct (acc: (B * B) * list (B * B)) (i: 'I_n.+1) :=
 	let head_y := head (0, 0) ys in
 	let ca_ := head_y.1 - xa in
 	let cb_ := head_y.2 - xb in
-	yas `+ ybs = xas `+ xbs /\	(* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
+	(*yas `+ ybs = xas_so_far `+ xbs_so_far /\	*)(* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
+	                            (* TODO: if we need to verify ys, we need to keep all past c_i in acc for verification, since yas `+ ybs = xas_so_far `+ xbs_so_far `+ cas_so_bar `+ cbs_so_bar *)
 	ca_ = ca /\ cb_ = cb.		(* Correctness 2: from step 2.b, the `c_i+1` that derived from `y_i+1` and `x_i+1`, should be equal to `c` we just folded in `acc` *)
 
 Lemma zn_to_z2_folder_correct acc i:
 	let acc' := zn_to_z2_folder acc i in
-	let i_ := widen_ord (@leqnSn _) i in (* make it can use the implicit argument *)
+	let i_ := widen_ord (@leqnSn _) i in (* the (@...) form: makes it can use the implicit argument *)
 	let i' := lift ord0 i in
 	is_scalar_product (tnth sps i) -> acc_correct acc i_ -> acc_correct acc' i'.
 Proof.
@@ -210,8 +211,11 @@ destruct acc' as [[ca_' cb_'] ys_'].
 move=>i_ i'.
 move=>smc_correct.
 rewrite /acc_correct/=.
+case=>[y_correct [ca_correct cb_correct]].
+simpl in *.
 Abort.
 
+(*
 
 move=>/=t_from_zn_to_z2_step2_1_correct.
 (* After moving the premises to the proof context, move acc_correct's hypothesis to the proof context *)
@@ -227,6 +231,8 @@ destruct zn_to_z2_step2_1 as [tai tbi].
 (* Simplify the proof context. Because now we have tai, tbi, ca, cb... and other things we want. *)
 simpl in *.
 move=>t_equation/=.
+
+*)
 
 (* head 0 (drop (size xas - size ys') xas) = head 0 (drop (size xas - (size ys').+1) xas) 
 
@@ -256,6 +262,31 @@ End zn_to_z2.
 *)
 
 End zn_to_z2_ntuple.
+
+Section zn_to_z2_demo.
+
+Variable (n: nat) (sps: n.-tuple (SMC B)) (xas xbs: n.+1.-tuple B).
+
+Definition preset_sp (Ra Rb: list B) (ra yb: B): SMC B :=
+	scalar_product Ra Rb ra (scalar_product_commidity_rb Ra Rb ra) yb. 
+
+(* Alice: 3 = (1 1 0); Bob: 2 = (0 1 0); A+B = 5 = (1 0 1) = zn-to-z2 5*)
+(*             1 2 4             1 2 4              1 2 4*)
+(* Need 3 times of SMC scalar-product. *)
+Definition demo_Alice3_Bob2_zn_to_z2 : B * B * seq(B * B) := 
+	let sps := [tuple
+		preset_sp [::9] [::8] 13 66;
+		preset_sp [::32] [::43] 34 5;
+		preset_sp [::57] [::40] 31 32
+	] in
+	let xas := [tuple 0; 1; 1; 0] in
+	let xbs := [tuple 0; 1; 0; 0] in
+	zn_to_z2 sps xas xbs.
+
+(* Note: not computable (show symbols only). *)
+Eval compute in (demo_Alice3_Bob2_zn_to_z2).
+
+End zn_to_z2_demo.
 
 
 
