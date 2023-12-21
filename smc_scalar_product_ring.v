@@ -143,6 +143,16 @@ Definition zn_to_z2_step2_2 (ti: B * B) (ci xi xi' : B * B) :
 	let ybi' := (xi'.2 + cbi') in
 	((cai', cbi'), (yai', ybi')).
 
+Lemma zn_to_z2_step2_2_correct (ti: B * B) (ci xi xi' : B * B):
+	let (c, y) := zn_to_z2_step2_2 ti ci xi xi' in
+	y.1 = c.1 + xi'.1 /\ y.2 = c.2 + xi'.2.
+Proof.
+simpl.
+split.
+ring.
+ring.
+Qed.
+
 Definition zn_to_z2_step2_1 (sp: SMC B) (ci xi: (B * B)) : (B * B) :=
 	sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2].
 
@@ -191,75 +201,96 @@ Definition acc_correct (acc: (B * B) * list (B * B)) (i: 'I_n.+1) :=
 	let head_y := head (0, 0) ys in
 	let ca_ := head_y.1 - xa in
 	let cb_ := head_y.2 - xb in
+	ca_ = ca /\ cb_ = cb /\		(* Correctness 1: from step 2.b, the `c_i+1` that derived from `y_i+1` and `x_i+1`, should be equal to `c` we just folded in `acc` *)
+	head_y.1 = xa + ca /\
+	head_y.2 = xb + cb .
+
+	(* We don't need to verify head_y = (xa + xb) + ca*)
 	(*yas `+ ybs = xas_so_far `+ xbs_so_far /\	*)(* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
 	                            (* TODO: if we need to verify ys, we need to keep all past c_i in acc for verification, since yas `+ ybs = xas_so_far `+ xbs_so_far `+ cas_so_bar `+ cbs_so_bar *)
-	ca_ = ca /\ cb_ = cb.		(* Correctness 2: from step 2.b, the `c_i+1` that derived from `y_i+1` and `x_i+1`, should be equal to `c` we just folded in `acc` *)
 
 Lemma zn_to_z2_folder_correct acc i:
-	let acc' := zn_to_z2_folder acc i in
 	let i_ := widen_ord (@leqnSn _) i in (* the (@...) form: makes it can use the implicit argument *)
 	let i' := lift ord0 i in
+	let xai_ := tnth xas i_ in
+	let xbi_ := tnth xbs i_ in
+	let xai' := tnth xas i' in
+	let xbi' := tnth xbs i' in
+	let acc' := zn_to_z2_folder acc i in
 	is_scalar_product (tnth sps i) -> acc_correct acc i_ -> acc_correct acc' i'.
 Proof.
 (* Spliting and moving all parameters to the proof context; for once we unwrap the acc_correct we will need them *)
+(* Peal until all places we can use other lemmas to support this lemma are shown. *)
+case: acc=>[[cai_ cbi_] ys_].
+move=> i_ i' xai_ xbi_ xai' xbi'.
+rewrite /zn_to_z2_folder.
+move=> spi_is_scalar_product acc_correct.  (* Then we show that the computation result acc' also satisify the acc_correct *)
+have:=zn_to_z2_step2_1_correct (cai_, cbi_) (xai_, xbi_) spi_is_scalar_product. (* We add what zn_to_z2_step2_1_correct can provide us here *)
+destruct zn_to_z2_step2_1 as [tai_ tbi_]. (* Then we don't need the term zn_to_z2_step2_1_correct anymore. Get ti from it. *)
+have:=zn_to_z2_step2_2_correct (tai_, tbi_) (cai_, cbi_) (xai_, xbi_) (xai', xbi').
+simpl.
+move=>p.
+case:p.
+move=>ya_eq_ca_xi' yb_eq_cb_xi' ti_eq_alice_bob_inputs.
+
+(* MEMO before pausing here:
+
+zn_to_z2_ntuple.acc_correct
+  (let (_, _) := head (0, 0) ys_ in
+   (cai_ * tnth xas (widen_ord (leqnSn n) i) + tai_, cbi_ * tnth xbs (widen_ord (leqnSn n) i) + tbi_,
+    (tnth xas (lift ord0 i) + (cai_ * tnth xas (widen_ord (leqnSn n) i) + tai_),
+     tnth xbs (lift ord0 i) + (cbi_ * tnth xbs (widen_ord (leqnSn n) i) + tbi_)) :: ys_)) i'
+
+-->
+
+   let (_, _) := head (0, 0) ys_ in
+   (cai', cbi', (yai', ybi'):: ys_)) i'
+
+*)
+
+(* WRONG: not fulfill the `zn_to_z2_step2_1_correct` with all its parameters.
+   Because: from the signature, it is: `zn_to_z2_step2_1_correct (SMC B) (B*B) (B*B)`.
+            However, for some uknown reasons, the correct `is_scalar_product (SMC B)` premise need to be fed at the last parameter,
+			otherwise Coq says the first parameter is NOT scalar product:
+
+			    have:=zn_to_z2_step2_1_correct spi_is_scalar_product (ca, cb) (tnth xas i_, tnth xbs i_).
+
+			The term "spi_is_scalar_product" has type "is_scalar_product (tnth sps i)"
+		    while it is expected to have type "(B * B)%type".
+
+	Instead: the premise need to be fed at the last parameter to this Lemma: 
+
+				have:=zn_to_z2_step2_1_correct (ca, cb) (tnth xas i_, tnth xbs i_) spi_is_scalar_product.
+
+	It seems that if a premise is no just a parameter, like `is_scalar_product (SMC B) -> ...` not `SMC B`,
+	it needs to be fed at the end.
+
+Proof.
 case: acc=>[[ca cb] ys].
-(* destruct because we see the first let from zn_to_z2_folder above *)
+move=> i_ i'.
+rewrite /zn_to_z2_folder.
+move=> spi_is_scalar_product acc_correct.
+have:=zn_to_z2_step2_1_correct (ca, cb) (tnth xas i_, tnth xbs i_).
+Abort.
+
+*)
+
+(* WRONG: destruct because we see the first let from zn_to_z2_folder above
+   Because: if we just destruct the result of zn_to_z2_folder here,
+            they just go to the proof context and no underlying SMC steps will be shown,
+			so we cannot use lemma we created before to prove their correctness, like
+			`zn_to_z2_step2_1_correct`.
+   Instead: we `rewrite /zn_to_z2_folder` to unfold the underlying steps.
+
+Proof.
+case: acc=>[[ca cb] ys].
 destruct zn_to_z2_folder as [p ys'].
+Abort.
+
+*)
+
 (* destruct because we see `let '(ca', cb') in p` *)
-destruct p as [ca' cb'].
-destruct acc' as [[ca_' cb_'] ys_'].
-move=>i_ i'.
-move=>smc_correct.
-rewrite /acc_correct/=.
-case=>[y_correct [ca_correct cb_correct]].
-simpl in *.
 Abort.
-
-(*
-
-move=>/=t_from_zn_to_z2_step2_1_correct.
-(* After moving the premises to the proof context, move acc_correct's hypothesis to the proof context *)
-case=>[xa_correct [xb_correct [y_correct [ca_correct [cb_correct [y_not_empty xas_xbs_size_eq]]]]]].
-(* We destruct ys to its head and tail _in the proof context_. *)
-destruct ys as [|[y tail]]=>//.
-(* Then we can unwrap the acc_correct, and do simplification. *)
-rewrite /acc_correct/=.
-(* We see zn_to_z2_step2_1, so immediately apply the zn_to_z2_step2_1_correct lemma with all parameters,
-   and immediately apply it to the goal. *)
-have:=zn_to_z2_step2_1_correct (ca, cb) (xa, xb) t_from_zn_to_z2_step2_1_correct.
-destruct zn_to_z2_step2_1 as [tai tbi].
-(* Simplify the proof context. Because now we have tai, tbi, ca, cb... and other things we want. *)
-simpl in *.
-move=>t_equation/=.
-
-*)
-
-(* head 0 (drop (size xas - size ys') xas) = head 0 (drop (size xas - (size ys').+1) xas) 
-
-it is
-
-   xa_nth = xa 
-
-in acc_correct.
-
-*
-
-split.
-2:{
-	split.	(* Correctness 2 in acc_correct: the `c` is correct at each step *)
-	1:{	(* ca is correct *) (* attempt: try to unwrap `tai` to ca, xa, cb, xb... so they can be simplified at once? *)
-		apply ca_correct.
-	}
-	2:{	(* cb is correct *)
-		split.
-	}
-}
-
-
-Abort.
-
-End zn_to_z2.
-*)
 
 End zn_to_z2_ntuple.
 
