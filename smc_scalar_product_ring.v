@@ -222,9 +222,13 @@ Proof.
 (* Spliting and moving all parameters to the proof context; for once we unwrap the acc_correct we will need them *)
 (* Peal until all places we can use other lemmas to support this lemma are shown. *)
 case: acc=>[[cai_ cbi_] ys_].
-move=> i_ i' xai_ xbi_ xai' xbi'.
+(*
+case: acc'=>[[cai' cbi'] ys'].
+*)
+
+move=> i_ i' xai_ xbi_ xai' xbi' acc'.
 rewrite /zn_to_z2_folder.
-move=> spi_is_scalar_product acc_correct.  (* Then we show that the computation result acc' also satisify the acc_correct *)
+move=> spi_is_scalar_product acc_correct_i_.  (* Then we show that the computation result acc' also satisify the acc_correct *)
 have:=zn_to_z2_step2_1_correct (cai_, cbi_) (xai_, xbi_) spi_is_scalar_product. (* We add what zn_to_z2_step2_1_correct can provide us here *)
 destruct zn_to_z2_step2_1 as [tai_ tbi_]. (* Then we don't need the term zn_to_z2_step2_1_correct anymore. Get ti from it. *)
 have:=zn_to_z2_step2_2_correct (tai_, tbi_) (cai_, cbi_) (xai_, xbi_) (xai', xbi').
@@ -232,20 +236,13 @@ simpl.
 move=>p.
 case:p.
 move=>ya_eq_ca_xi' yb_eq_cb_xi' ti_eq_alice_bob_inputs.
+rewrite /acc_correct.
+case: acc'=>[[ca' cb'] ys'].
 
-(* MEMO before pausing here:
+(* WRONG: leave acc' in the stack but not `case: acc'=>[[ca' cb'] ys']` to let it in the proof-context
+   Result: when the stack needs ca' cb' and ys', the proof-context has no these symbols.
 
-zn_to_z2_ntuple.acc_correct
-  (let (_, _) := head (0, 0) ys_ in
-   (cai_ * tnth xas (widen_ord (leqnSn n) i) + tai_, cbi_ * tnth xbs (widen_ord (leqnSn n) i) + tbi_,
-    (tnth xas (lift ord0 i) + (cai_ * tnth xas (widen_ord (leqnSn n) i) + tai_),
-     tnth xbs (lift ord0 i) + (cbi_ * tnth xbs (widen_ord (leqnSn n) i) + tbi_)) :: ys_)) i'
-
--->
-
-   let (_, _) := head (0, 0) ys_ in
-   (cai', cbi', (yai', ybi'):: ys_)) i'
-
+   Therefore: `case: acc'=>[[ca' cb'] ys']` to get those symbols.
 *)
 
 (* WRONG: not fulfill the `zn_to_z2_step2_1_correct` with all its parameters.
