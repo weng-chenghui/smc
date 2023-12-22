@@ -203,7 +203,9 @@ Definition zn_to_z2_folder (acc: list ((B * B) * (B * B))) (i: 'I_n):
 (* xs[0] = lowest bit *)
 Definition zn_to_z2 :=
 	let init := [:: ((0, 0), (tnth xas 0, tnth xbs 0))] in  (* For party A,B: c0=0, y0=x0 *)
-	foldl zn_to_z2_folder init (ord_tuple n) .	
+	foldl zn_to_z2_folder init (ord_tuple n). 
+
+Let Wi {n} {m : 'I_n} : 'I_m.+1 -> 'I_n := @widen_ord _ n (ltn_ord m).
 
 Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let cas := unzip1 (unzip1 acc) in
@@ -212,6 +214,17 @@ Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let ybs := unzip2 (unzip2 acc) in
   size acc = i.+1 /\ rev yas = take i.+1 xas `+ rev cas /\
   rev ybs = take i.+1 xbs `+ rev cbs.
+
+Definition acc_correct' (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
+  let cas := unzip1 (unzip1 acc) in
+  let cbs := unzip2 (unzip1 acc) in
+  let yas := unzip1 (unzip2 acc) in
+  let ybs := unzip2 (unzip2 acc) in
+  size acc = i.+1 /\ rev yas = take i.+1 xas `+ rev cas /\
+  rev ybs = take i.+1 xbs `+ rev cbs /\
+  ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i.+1 +
+   \sum_(j < i.+1) (yas `_ j + ybs `_ j)%R * 2 ^ j =
+   \sum_(j < i.+1) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
 
 Lemma add_cat (s1 s2 t1 t2 : seq B) :
   size s1 = size t1 ->
