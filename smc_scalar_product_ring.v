@@ -167,6 +167,15 @@ Proof.
 apply.
 Qed.
 
+Lemma zn_to_z2_step2_1_correct' (sp: SMC B) (ci xi: B * B) :
+	is_scalar_product sp ->
+	let alice_input := [:: ci.1; xi.1; xi.1] in
+	let bob_input := [:: xi.2; ci.2; xi.2] in
+	exists tai tbi, (tai, tbi) = zn_to_z2_step2_1 sp ci xi /\
+	tai + tbi = alice_input `* bob_input .
+Proof.
+Admitted.
+
 Section zn_to_z2_ntuple.
 
 Variable (n: nat) (sps: n.-tuple (SMC B)) (xas xbs: n.+1.-tuple B).
@@ -198,13 +207,10 @@ Definition acc_correct (acc: (B * B) * list (B * B)) (i: 'I_n.+1) :=
 	let head_y := head (0, 0) ys in
 	let ca_ := head_y.1 - xa in
 	let cb_ := head_y.2 - xb in
-	ca_ = ca /\ cb_ = cb /\		(* Correctness 1: from step 2.b, the `c_i+1` that derived from `y_i+1` and `x_i+1`, should be equal to `c` we just folded in `acc` *)
+	ca_ = ca /\ cb_ = cb /\	
 	head_y.1 = xa + ca /\
-	head_y.2 = xb + cb .
-
-	(* We don't need to verify head_y = (xa + xb) + ca*)
-	(*yas `+ ybs = xas_so_far `+ xbs_so_far /\	*)(* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
-	                            (* TODO: if we need to verify ys, we need to keep all past c_i in acc for verification, since yas `+ ybs = xas_so_far `+ xbs_so_far `+ cas_so_bar `+ cbs_so_bar *)
+	head_y.2 = xb + cb /\
+	yas `+ ybs = take i.+1 xas `+ take i.+1 xbs.
 
 Let W {n} (i : 'I_n) : 'I_n.+1 := widen_ord (@leqnSn _) i.
 Let S {n} (i : 'I_n) : 'I_n.+1 := lift ord0 i.
@@ -216,16 +222,38 @@ Lemma zn_to_z2_folder_correct acc i:
 	is_scalar_product (sps !_ i) -> acc_correct acc (W i) -> acc_correct (zn_to_z2_folder acc i) (S i).
 Proof.
 case: acc=>[[cai_ cbi_] ys_].
-move=> spi_is_scalar_product acc_correct_i_.  (* Then we show that the computation result acc' also satisify the acc_correct *)
+move=> spi_is_scalar_product acc_correct_i_.
 rewrite /zn_to_z2_folder.
 rewrite /=.
 rewrite -/(W _) -/(S _).
-have:=zn_to_z2_step2_1_correct (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) spi_is_scalar_product. (* We add what zn_to_z2_step2_1_correct can provide us here *)
-destruct zn_to_z2_step2_1 as [tai_ tbi_]. (* Then we don't need the term zn_to_z2_step2_1_correct anymore. Get ti from it. *)
+(**
+have [tai_ [tbi_ [H1 H2]]] := (zn_to_z2_step2_1_correct' (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) spi_is_scalar_product). 
+rewrite -H1 /=.
+*)
+
+
+have:=zn_to_z2_step2_1_correct (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) spi_is_scalar_product.
+destruct zn_to_z2_step2_1 as [tai_ tbi_].
 have:=zn_to_z2_step2_2_correct (tai_, tbi_) (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) (xas !_ (S i), xbs !_ (S i)).
 simpl.
-case.
-move=>ya_eq_ca_xi' yb_eq_cb_xi' ti_eq_alice_bob_inputs.
+move=>[Hca Hcb Htai_tbi].
+intuition;try ring.
+move: acc_correct_i_ =>[Ha [ Hb [Hc [Hd He]]]].
+have Hbump : bump 0 i = (W i).+1.
+by [].
+rewrite Hbump.
+rewrite (take_nth 0) ? size_tuple ? ltnS //=.
+Check take_nth.
+Search take _ in seq.
+rewrite -He.
+
+
+
+
+move=>tai_tbi.
+rewrite /tai_ /tbi_.
+
+move=>ya_eq_ca_xi' yb_eq_cb_xi' (** ti_eq_alice_bob_inputs*).
 by intuition ring.
 Qed.
 
