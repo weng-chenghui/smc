@@ -206,17 +206,23 @@ Definition acc_correct (acc: (B * B) * list (B * B)) (i: 'I_n.+1) :=
 	(*yas `+ ybs = xas_so_far `+ xbs_so_far /\	*)(* Correctness 1: def from the paper: [ ya_i + yb_i ... ya_0 + yb_0 ]_2 = (x_a + x_b)_2 -- SMC op result = non-SMC op result. *)
 	                            (* TODO: if we need to verify ys, we need to keep all past c_i in acc for verification, since yas `+ ybs = xas_so_far `+ xbs_so_far `+ cas_so_bar `+ cbs_so_bar *)
 
+Let W {n} (i : 'I_n) : 'I_n.+1 := widen_ord (@leqnSn _) i.
+
+Notation "t '!_' i" := (tnth t i) (at level 10). (* lv9: no parenthesis; so lv10*)
+
 Lemma zn_to_z2_folder_correct acc i:
-	let i_ := widen_ord (@leqnSn _) i in (* the (@...) form: makes it can use the implicit argument *)
 	let i' := lift ord0 i in
 	let acc' := zn_to_z2_folder acc i in
-	is_scalar_product (tnth sps i) -> acc_correct acc i_ -> acc_correct acc' i'.
+	is_scalar_product (tnth sps i) -> acc_correct acc (W i) -> acc_correct acc' i'.
 Proof.
-move=> i_ i' /=.
-pose xai_ := tnth xas i_.
-pose xbi_ := tnth xbs i_.
-pose xai' := tnth xas i'.
-pose xbi' := tnth xbs i'.
+move=> i' /=.
+(*
+pose xai_ := xas !_ i_.
+pose xbi_ := xbs !_ i_.
+pose xai' := xas !_ i'.
+pose xbi' := xbs !_ i'.
+
+*)
 (* Spliting and moving all parameters to the proof context; for once we unwrap the acc_correct we will need them *)
 (* Peal until all places we can use other lemmas to support this lemma are shown. *)
 case: acc=>[[cai_ cbi_] ys_].
@@ -226,12 +232,12 @@ case: acc'=>[[cai' cbi'] ys'].
 move=> spi_is_scalar_product acc_correct_i_.  (* Then we show that the computation result acc' also satisify the acc_correct *)
 rewrite /zn_to_z2_folder.
 rewrite /=.
-rewrite -/xai_ -/xbi_.
-have:=zn_to_z2_step2_1_correct (cai_, cbi_) (xai_, xbi_) spi_is_scalar_product. (* We add what zn_to_z2_step2_1_correct can provide us here *)
+have:=zn_to_z2_step2_1_correct (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) spi_is_scalar_product. (* We add what zn_to_z2_step2_1_correct can provide us here *)
 
 destruct zn_to_z2_step2_1 as [tai_ tbi_]. (* Then we don't need the term zn_to_z2_step2_1_correct anymore. Get ti from it. *)
-have:=zn_to_z2_step2_2_correct (tai_, tbi_) (cai_, cbi_) (xai_, xbi_) (xai', xbi').
+have:=zn_to_z2_step2_2_correct (tai_, tbi_) (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) (xas !_ i', xbs !_ i').
 simpl.
+rewrite -/(W _).
 move=>p.
 case:p.
 move=>ya_eq_ca_xi' yb_eq_cb_xi' ti_eq_alice_bob_inputs.
