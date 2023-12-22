@@ -156,6 +156,7 @@ Qed.
 Definition zn_to_z2_step2_1 (sp: SMC B) (ci xi: (B * B)) : (B * B) :=
 	sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2].
 
+(* NOTE: this is not rewritable (yet). *)
 Lemma zn_to_z2_step2_1_correct (sp: SMC B) (ci xi: B * B) :
 	is_scalar_product sp ->
 	let alice_input := [:: ci.1; xi.1; xi.1] in
@@ -180,12 +181,8 @@ Definition zn_to_z2_folder (acc: (B * B) * list (B * B)) (i: 'I_n): B * B * list
 	let xa' := tnth xas i' in 
 	let xb := tnth xbs i_ in
 	let xb' := tnth xbs i' in 
-	match head (0, 0) ys with (* get previous ca, cb and use them to calculate the new result, and push the new result to the acc list*)
-	| (ya, yb) => 
-		let '(cs, yab) := 
-			zn_to_z2_step2_2 (zn_to_z2_step2_1 sp (ca, cb) (xa, xb)) (ca, cb) (xa, xb) (xa', xb')
-		in (cs, yab :: ys)
-	end.
+	let '(cs, yab) := zn_to_z2_step2_2 (zn_to_z2_step2_1 sp (ca, cb) (xa, xb)) (ca, cb) (xa, xb) (xa', xb') in
+	(cs, yab :: ys).
 
 (* xs[0] = lowest bit *)
 Definition zn_to_z2 :=
@@ -212,32 +209,35 @@ Definition acc_correct (acc: (B * B) * list (B * B)) (i: 'I_n.+1) :=
 Lemma zn_to_z2_folder_correct acc i:
 	let i_ := widen_ord (@leqnSn _) i in (* the (@...) form: makes it can use the implicit argument *)
 	let i' := lift ord0 i in
-	let xai_ := tnth xas i_ in
-	let xbi_ := tnth xbs i_ in
-	let xai' := tnth xas i' in
-	let xbi' := tnth xbs i' in
 	let acc' := zn_to_z2_folder acc i in
 	is_scalar_product (tnth sps i) -> acc_correct acc i_ -> acc_correct acc' i'.
 Proof.
+move=> i_ i' /=.
+pose xai_ := tnth xas i_.
+pose xbi_ := tnth xbs i_.
+pose xai' := tnth xas i'.
+pose xbi' := tnth xbs i'.
 (* Spliting and moving all parameters to the proof context; for once we unwrap the acc_correct we will need them *)
 (* Peal until all places we can use other lemmas to support this lemma are shown. *)
 case: acc=>[[cai_ cbi_] ys_].
 (*
 case: acc'=>[[cai' cbi'] ys'].
 *)
-
-move=> i_ i' xai_ xbi_ xai' xbi' acc'.
-rewrite /zn_to_z2_folder.
 move=> spi_is_scalar_product acc_correct_i_.  (* Then we show that the computation result acc' also satisify the acc_correct *)
+rewrite /zn_to_z2_folder.
+rewrite /=.
+rewrite -/xai_ -/xbi_.
 have:=zn_to_z2_step2_1_correct (cai_, cbi_) (xai_, xbi_) spi_is_scalar_product. (* We add what zn_to_z2_step2_1_correct can provide us here *)
+
 destruct zn_to_z2_step2_1 as [tai_ tbi_]. (* Then we don't need the term zn_to_z2_step2_1_correct anymore. Get ti from it. *)
 have:=zn_to_z2_step2_2_correct (tai_, tbi_) (cai_, cbi_) (xai_, xbi_) (xai', xbi').
 simpl.
 move=>p.
 case:p.
 move=>ya_eq_ca_xi' yb_eq_cb_xi' ti_eq_alice_bob_inputs.
-rewrite /acc_correct.
-case: acc'=>[[ca' cb'] ys'].
+rewrite /i'.
+intuition ring.
+Qed.
 
 (* WRONG: leave acc' in the stack but not `case: acc'=>[[ca' cb'] ys']` to let it in the proof-context
    Result: when the stack needs ca' cb' and ys', the proof-context has no these symbols.
