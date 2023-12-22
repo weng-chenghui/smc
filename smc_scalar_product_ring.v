@@ -26,7 +26,7 @@ Definition dotproduct (la lb: list Z) : Z :=
 	foldl (fun sum current => sum + current) 0 (zipWith (fun a b => a * b) la lb).
 
 Definition add (la lb: list Z) : list Z :=
-	zipWith (fun a b => a + b) la lb.
+	map (fun a => a.1 + a.2) (zip la lb).
 
 Notation "la '`*' lb" := (dotproduct la lb).
 Notation "la '`+' lb" := (add la lb).
@@ -208,13 +208,20 @@ Definition acc_correct (acc: (B * B) * list (B * B)) (i: 'I_n.+1) :=
 	let ca_ := head_y.1 - xa in
 	let cb_ := head_y.2 - xb in
 	ca_ = ca /\ cb_ = cb /\	
-	head_y.1 = xa + ca /\
-	head_y.2 = xb + cb /\
-	yas `+ ybs = take i.+1 xas `+ take i.+1 xbs.
+	rev (yas `+ ybs) = take i.+1 xas `+ take i.+1 xbs.
 
 Let W {n} (i : 'I_n) : 'I_n.+1 := widen_ord (@leqnSn _) i.
 Let S {n} (i : 'I_n) : 'I_n.+1 := lift ord0 i.
 (* Memo: Use Let: things disappear after closing the section. *)
+
+Lemma add_cat
+	 : forall (s1 s2 t1 t2 : seq B) ,
+       size s1 = size t1 ->
+       add (s1 ++ s2) (t1 ++ t2) = add s1 t1 ++ add s2 t2.
+Proof.
+by move=>s1 s2 t1 t2 Hsize; rewrite /add zip_cat // map_cat.
+Qed.
+
 
 Notation "t '!_' i" := (tnth t i) (at level 10). (* lv9: no parenthesis; so lv10*)
 
@@ -238,11 +245,52 @@ have:=zn_to_z2_step2_2_correct (tai_, tbi_) (cai_, cbi_) (xas !_ (W i), xbs !_ (
 simpl.
 move=>[Hca Hcb Htai_tbi].
 intuition;try ring.
-move: acc_correct_i_ =>[Ha [ Hb [Hc [Hd He]]]].
+move: acc_correct_i_ =>[Ha [ Hb Hc]].
 have Hbump : bump 0 i = (W i).+1.
 by [].
 rewrite Hbump.
-rewrite (take_nth 0) ? size_tuple ? ltnS //=.
+rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
+rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
+rewrite -!cats1.
+Check cat1s.
+rewrite -!(cat1s _ (unzip2 ys_)) -cat1s.
+rewrite !add_cat //.
+rewrite !rev_cat.
+rewrite Hc.
+congr cat.
+rewrite /add/=.
+congr cons.
+move:Htai_tbi.
+rewrite /dotproduct/=.
+rewrite add0r.
+rewrite !(tnth_nth 0)/=.
+rewrite Hbump /=.
+
+
+move /esym /eqP.
+rewrite -subr_eq.
+move /eqP => <-.
+
+
+set X:=xas`_i.+1.
+set Y:=xbs`_i.+1.
+set P:=xas`_i.
+set Q:=xbs`_i.
+
+
+ring.
+rewrite addr1.
+
+Search "subr" "eq". 
+ring.
+intuition ring.
+Check f_equal.
+
+
+Search rev cat in seq.
+
+
+
 Check take_nth.
 Search take _ in seq.
 rewrite -He.
