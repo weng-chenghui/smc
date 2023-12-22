@@ -180,129 +180,67 @@ Section zn_to_z2_ntuple.
 
 Variable (n: nat) (sps: n.-tuple (SMC B)) (xas xbs: n.+1.-tuple B).
 
-(*acc: carry-bit Alice, Bob will receive; results Alice, bob will receive*)
-Definition zn_to_z2_folder (acc: (B * B) * list (B * B)) (i: 'I_n): B * B * list(B * B) :=
-	let '(ca, cb, ys) := acc in 
-	let sp := tnth sps i in
-	let i_ := widen_ord (@leqnSn _) i in (* make it can use the implicit argument *)
-	let i' := lift ord0 i in
-	let xa := tnth xas i_ in
-	let xa' := tnth xas i' in 
-	let xb := tnth xbs i_ in
-	let xb' := tnth xbs i' in 
-	let '(cs, yab) := zn_to_z2_step2_2 (zn_to_z2_step2_1 sp (ca, cb) (xa, xb)) (ca, cb) (xa, xb) (xa', xb') in
-	(cs, yab :: ys).
-
-(* xs[0] = lowest bit *)
-Definition zn_to_z2 :=
-	let init := (0, 0, [:: (tnth xas 0, tnth xbs 0)]) in  (* For party A,B: c0=0, y0=x0 *)
-	foldl zn_to_z2_folder init (ord_tuple n) .	
-
-Definition acc_correct (acc: (B * B) * list (B * B)) (i: 'I_n.+1) :=
-	let '((ca, cb), ys) := acc in
-	let xa := tnth xas i in
-	let xb := tnth xbs i in
-	let yas := unzip1 ys in
-	let ybs := unzip2 ys in
-	let head_y := head (0, 0) ys in
-	let ca_ := head_y.1 - xa in
-	let cb_ := head_y.2 - xb in
-	ca_ = ca /\ cb_ = cb /\	
-	rev (yas `+ ybs) = take i.+1 xas `+ take i.+1 xbs.
-
 Let W {n} (i : 'I_n) : 'I_n.+1 := widen_ord (@leqnSn _) i.
 Let S {n} (i : 'I_n) : 'I_n.+1 := lift ord0 i.
 (* Memo: Use Let: things disappear after closing the section. *)
 
-Lemma add_cat
-	 : forall (s1 s2 t1 t2 : seq B) ,
-       size s1 = size t1 ->
-       add (s1 ++ s2) (t1 ++ t2) = add s1 t1 ++ add s2 t2.
-Proof.
-by move=>s1 s2 t1 t2 Hsize; rewrite /add zip_cat // map_cat.
-Qed.
-
-
 Notation "t '!_' i" := (tnth t i) (at level 10). (* lv9: no parenthesis; so lv10*)
+
+(*acc: carry-bit Alice, Bob will receive; results Alice, bob will receive*)
+Definition zn_to_z2_folder (acc: list ((B * B) * (B * B))) (i: 'I_n):
+  list ((B * B) * (B * B)) :=
+	let '((ca, cb), _) := head ((0,0),(0,0)) acc in
+	let sp := tnth sps i in
+	let i_ := W i in (* make it can use the implicit argument *)
+	let i' := S i in
+	let xa := xas !_ i_ in
+	let xa' := xas !_ i' in
+	let xb := xbs !_ i_ in
+	let xb' := xbs !_ i' in
+	let '(cs, yab) := zn_to_z2_step2_2 (zn_to_z2_step2_1 sp (ca, cb) (xa, xb)) (ca, cb) (xa, xb) (xa', xb') in
+	((cs, yab) :: acc).
+
+(* xs[0] = lowest bit *)
+Definition zn_to_z2 :=
+	let init := [:: ((0, 0), (tnth xas 0, tnth xbs 0))] in  (* For party A,B: c0=0, y0=x0 *)
+	foldl zn_to_z2_folder init (ord_tuple n) .	
+
+Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
+  let cas := unzip1 (unzip1 acc) in
+  let cbs := unzip2 (unzip1 acc) in
+  let yas := unzip1 (unzip2 acc) in
+  let ybs := unzip2 (unzip2 acc) in
+  size acc = i.+1 /\ rev yas = take i.+1 xas `+ rev cas /\
+  rev ybs = take i.+1 xbs `+ rev cbs.
+
+Lemma add_cat (s1 s2 t1 t2 : seq B) :
+  size s1 = size t1 ->
+  add (s1 ++ s2) (t1 ++ t2) = add s1 t1 ++ add s2 t2.
+Proof. by move=> Hsize; rewrite /add zip_cat // map_cat. Qed.
 
 Lemma zn_to_z2_folder_correct acc i:
 	is_scalar_product (sps !_ i) -> acc_correct acc (W i) -> acc_correct (zn_to_z2_folder acc i) (S i).
 Proof.
-case: acc=>[[cai_ cbi_] ys_].
-move=> spi_is_scalar_product acc_correct_i_.
-rewrite /zn_to_z2_folder.
-rewrite /=.
-rewrite -/(W _) -/(S _).
-(**
-have [tai_ [tbi_ [H1 H2]]] := (zn_to_z2_step2_1_correct' (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) spi_is_scalar_product). 
-rewrite -H1 /=.
-*)
-
-
+move=> spi_is_scalar_product [].
+case Hacc: acc => [|[[cai_ cbi_] [ya yb]] acc'] //.
+rewrite -Hacc.
+move=> Hsz [Hya Hyb].
+rewrite /zn_to_z2_folder {1}Hacc /=.
 have:=zn_to_z2_step2_1_correct (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) spi_is_scalar_product.
 destruct zn_to_z2_step2_1 as [tai_ tbi_].
 have:=zn_to_z2_step2_2_correct (tai_, tbi_) (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) (xas !_ (S i), xbs !_ (S i)).
 simpl.
-move=>[Hca Hcb Htai_tbi].
-intuition;try ring.
-move: acc_correct_i_ =>[Ha [ Hb Hc]].
-have Hbump : bump 0 i = (W i).+1.
-by [].
+move=> _ Htai_tbi.
+have Hbump : bump 0 i = (W i).+1 by [].
+rewrite /acc_correct /= Hsz.
+split => //.
 rewrite Hbump.
 rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
 rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
-rewrite -!cats1.
-Check cat1s.
-rewrite -!(cat1s _ (unzip2 ys_)) -cat1s.
-rewrite !add_cat //.
-rewrite !rev_cat.
-rewrite Hc.
-congr cat.
-rewrite /add/=.
-congr cons.
-move:Htai_tbi.
-rewrite /dotproduct/=.
-rewrite add0r.
-rewrite !(tnth_nth 0)/=.
-rewrite Hbump /=.
-
-
-move /esym /eqP.
-rewrite -subr_eq.
-move /eqP => <-.
-
-
-set X:=xas`_i.+1.
-set Y:=xbs`_i.+1.
-set P:=xas`_i.
-set Q:=xbs`_i.
-
-
-ring.
-rewrite addr1.
-
-Search "subr" "eq". 
-ring.
-intuition ring.
-Check f_equal.
-
-
-Search rev cat in seq.
-
-
-
-Check take_nth.
-Search take _ in seq.
-rewrite -He.
-
-
-
-
-move=>tai_tbi.
-rewrite /tai_ /tbi_.
-
-move=>ya_eq_ca_xi' yb_eq_cb_xi' (** ti_eq_alice_bob_inputs*).
-by intuition ring.
+rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
+rewrite !(add_cat,rev_cat) //;
+  try by rewrite size_takel !(size_tuple,size_rev,size_map) // ltnS ltnW.
+by rewrite Hya Hyb !(tnth_nth 0).
 Qed.
 
 (*
