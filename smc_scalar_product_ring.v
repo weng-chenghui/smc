@@ -256,6 +256,35 @@ rewrite !(add_cat,rev_cat) //;
 by rewrite Hya Hyb !(tnth_nth 0).
 Qed.
 
+
+Lemma zn_to_z2_folder_correct' acc i:
+	is_scalar_product (sps !_ i) -> acc_correct' acc (W i) -> acc_correct' (zn_to_z2_folder acc i) (S i).
+Proof.
+move=> spi_is_scalar_product [].
+case Hacc: acc => [|[[cai_ cbi_] [ya yb]] acc'] //.
+rewrite -Hacc.
+move=> Hsz [Hya [Hyb Hdecimal_eq]].
+rewrite /zn_to_z2_folder {1}Hacc /=.
+have:=zn_to_z2_step2_1_correct (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) spi_is_scalar_product.
+destruct zn_to_z2_step2_1 as [tai_ tbi_].
+have:=zn_to_z2_step2_2_correct (tai_, tbi_) (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) (xas !_ (S i), xbs !_ (S i)).
+simpl.
+move=> _ Htai_tbi.
+have Hbump : bump 0 i = (W i).+1 by [].
+rewrite /acc_correct' /= Hsz.
+split => //.
+rewrite Hbump.
+Abort.
+(*
+rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
+rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
+rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
+rewrite !(add_cat,rev_cat) //;
+  try by rewrite size_takel !(size_tuple,size_rev,size_map) // ltnS ltnW.
+by rewrite Hya Hyb !(tnth_nth 0).
+Qed.
+*)
+
 (*
 Memo: use pose instead of let in proof.
 
