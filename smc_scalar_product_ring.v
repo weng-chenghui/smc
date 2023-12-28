@@ -315,6 +315,45 @@ rewrite [in RHS] addnAC.
 rewrite !addnA.
 congr (_ + _)%N.
 rewrite subn0.
+rewrite Hacc /=.
+destruct n as [|n'] => /=.
+  destruct i as [i Hi] => /=.
+  destruct i as [|i] => //=.
+destruct i as [i Hi] => /=.
+destruct i as [|i] => /=.
+  destruct n' => /=.
+  rewrite (_:xas `_(bump 0 0) = xas `_1%N) //.
+  rewrite (_:xbs `_(bump 0 0) = xbs `_1%N) //.
+  rewrite (_:(2 ^ bump 0 0 = 2)%N) //.
+  rewrite (_:xas !_ (Wi ord_max) = xas `_1%N);last first.
+    by rewrite (tnth_nth 0) //.
+  rewrite (_:xbs !_ (Wi ord_max) = xbs `_1%N);last first.
+    by rewrite (tnth_nth 0) //.
+	rewrite (_:xas `_0 = true);last admit.
+	rewrite (_:xbs `_0 = true);last admit.
+	rewrite (_:xas `_1 = true);last admit.
+	rewrite (_:xbs `_1 = true);last admit.
+	rewrite (_:cai_ = true);last admit.
+	rewrite (_:cbi_ = true);last admit.
+	rewrite (_:tai_ = true);last admit.
+	rewrite (_:tbi_ = true);last admit.
+	simpl.
+	rewrite !mul0n.
+  
+
+
+  rewrite (_:xas `_1%N = false);last first.
+    rewrite nth_default //.
+	rewrite size_tuple //.
+
+  rewrite (_:Wi ord_max = ord0%N) // ; last first.
+  apply val_inj => /=.
+  rewrite /bump /=.
+
+  done.
+
+destruct i as [i Hi] => /=.
+destruct i as [|i] => /=.
 (**
 congr (_ * _)%N.
 *)
