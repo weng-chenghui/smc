@@ -223,8 +223,10 @@ Definition acc_correct' (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   size acc = i.+1 /\ rev yas = take i.+1 xas `+ rev cas /\
   rev ybs = take i.+1 xbs `+ rev cbs /\
   ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i.+1 +
-   \sum_(j < i.+1) (yas `_ j + ybs `_ j)%R * 2 ^ j =
+   \sum_(j < i.+1) (yas `_ j + ybs `_ j)%R * 2 ^ (i-j) =
    \sum_(j < i.+1) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
+
+Search rev nth in seq.
 
 Lemma add_cat (s1 s2 t1 t2 : seq B) :
   size s1 = size t1 ->
@@ -273,7 +275,65 @@ move=> _ Htai_tbi.
 have Hbump : bump 0 i = (W i).+1 by [].
 rewrite /acc_correct' /= Hsz.
 split => //.
+rewrite {1 2 3}Hbump. (* only use Hbump in occurence #1, #2 and #3. *)
+rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
+rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
+rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
+rewrite !(add_cat,rev_cat) //;
+  try by rewrite size_takel !(size_tuple,size_rev,size_map) // ltnS ltnW.
+rewrite Hya Hyb !(tnth_nth 0).
+split => //.
+split => //.
+
+rewrite big_ord_recl /=.
+rewrite [RHS] big_ord_recr /=.
+rewrite /= in Hdecimal_eq.
+set sum1 := (X in _ = (X + _)%N).
+set sum1' := (X in _ = X) in Hdecimal_eq.
+have H1 : sum1 = sum1'.
+  rewrite /sum1 /sum1'.
+  apply: eq_bigr.
+  move=>j _.
+  congr ((_ + _) * _)%N ; congr (nat_of_bool (_ !_ _)); exact: val_inj.  (* congr: make pattern more simple when there is an eq; `;` do things in parallel.*)
+  (*Set Printing  Coercions*)
+  (*
+		val_inj for "value injection"
+		A ; B. means "execute A and for all subgoals apply B"
+		A. B. means "execute A and for the first subgoal in line execute B" 
+  *)
+rewrite H1.
+set sum2 := (\sum_(j<_) _)%N.
+set sum2' := (\sum_(j<_) _)%N in Hdecimal_eq.
+have H2 : sum2 = sum2'.
+  rewrite /sum2 /sum2'.
+  apply: eq_bigr.
+  move=> i0 _.
+  by congr (_ * _)%N.
+rewrite H2.
+rewrite -Hdecimal_eq.
+rewrite [in RHS] addnAC.
+rewrite !addnA.
+congr (_ + _)%N.
+rewrite subn0.
+(**
+congr (_ * _)%N.
+*)
+ (**rewrite subn0*) 
+(**rewrite subn0 and then congr (_ * _)%N*)
+
+(**
+set sum1 := (X in _ = X + _).
+set sum1' := (X in _ = X) in Hdecimal_eq.
+have H1 : sum1 = sum1'.
+*)
+
+rewrite 
+Qed.
+
+(*
+rewrite [in X in X /\ _]Hbump. 
 rewrite Hbump.
+*)
 Abort.
 (*
 rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
