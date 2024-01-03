@@ -226,7 +226,14 @@ Definition acc_correct' (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
    \sum_(j < i.+1) (yas `_ j + ybs `_ j)%R * 2 ^ (i-j) =
    \sum_(j < i.+1) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
 
-Search rev nth in seq.
+Definition dec_eq (i: 'I_2.+1) (xas' xbs': (2.+1).-tuple B) : nat :=
+  \sum_(j < i.+1) (((xas' !_ (@Wi 2 _ j) : nat) + xbs' !_ (@Wi 2 _ j)) * 2 ^ j)%nat.
+
+Eval compute in (dec_eq (inord 1) [tuple true; true] [tuple false; false]).
+
+
+
+
 
 Lemma add_cat (s1 s2 t1 t2 : seq B) :
   size s1 = size t1 ->
