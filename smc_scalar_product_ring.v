@@ -215,6 +215,19 @@ Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   size acc = i.+1 /\ rev yas = take i.+1 xas `+ rev cas /\
   rev ybs = take i.+1 xbs `+ rev cbs.
 
+Local Notation "s `__ i" := (nth 0%N s i) (at level 2).
+
+Definition decimal_eq (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) := 
+  let cas := unzip1 (unzip1 acc) in
+  let cbs := unzip2 (unzip1 acc) in
+  let yas := unzip1 (unzip2 acc) in
+  let ybs := unzip2 (unzip2 acc) in
+  ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i.+1 +
+   \sum_(j < i.+1)
+     (([seq nat_of_bool b | b <- yas] `__ j)
+      + [seq nat_of_bool b | b <- ybs] `__ j)%N * 2 ^ (i-j) =
+     \sum_(j < i.+1) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
+
 Definition acc_correct' (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let cas := unzip1 (unzip1 acc) in
   let cbs := unzip2 (unzip1 acc) in
@@ -222,16 +235,62 @@ Definition acc_correct' (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let ybs := unzip2 (unzip2 acc) in
   size acc = i.+1 /\ rev yas = take i.+1 xas `+ rev cas /\
   rev ybs = take i.+1 xbs `+ rev cbs /\
-  ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i.+1 +
-   \sum_(j < i.+1) (yas `_ j + ybs `_ j)%R * 2 ^ (i-j) =
-   \sum_(j < i.+1) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
+  decimal_eq acc i.
 
+Lemma rev1 [T : Type] (x : T) : rev [:: x] = [:: x].
+Proof. by []. Qed.
+
+Lemma size_seq1 [T : Type] (s : seq T) :
+  size s = 1%N -> exists t, s = [:: t].
+Proof.
+case: s => //= a s.
+move/succn_inj/size0nil->.
+by exists a.
+Qed.
+
+Lemma acc_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :
+  (rev (unzip1 (unzip1 acc)))`_0 = 0 ->
+  (rev (unzip2 (unzip1 acc)))`_0 = 0 ->
+  acc_correct acc i -> decimal_eq acc i.
+Proof.
+move=> ca0 cb0 [] size_accSi [].
+rewrite /decimal_eq.
+move/(congr1 rev); rewrite revK => ->.
+move/(congr1 rev); rewrite revK => ->.
+(*
+under [RHS]eq_bigr => j _.
+  rewrite !(tnth_nth 0).
+  over.
+
+evar (XX : nat).
+rewrite [RHS](_ : _ = XX); last first.
+  apply: eq_bigr => j _.
+  rewrite !(tnth_nth 0).
+  reflexivity.
+rewrite /XX {XX}.
+*)
+under [RHS]eq_bigr do rewrite !(tnth_nth 0).
+move: i size_accSi.
+induction n as [|n0].
+  case=> i /=.
+  move/ltnSE; rewrite leqn0 => /eqP -> acc1.
+  move: acc1 ca0 cb0.
+  Search (\big[_/_]_(_<1) _).
+  rewrite !big_ord1.
+  case/size_seq1=> a /= -> /= -> ->.
+  rewrite !rev1 subnn expn0.
+  case: xas => xas' /= /eqP /size_seq1 [] xa -> /=.
+  case: xbs => xbs' /= /eqP /size_seq1 [] xb -> /=.
+  by rewrite expn1 !addr0 mul0n muln1 add0n.
+case=> i /= iltn0.
+STOP
+
+ 
 Definition dec_eq (i: 'I_2.+1) (xas' xbs': (2.+1).-tuple B) : nat :=
-  \sum_(j < i.+1) (((xas' !_ (@Wi 2 _ j) : nat) + xbs' !_ (@Wi 2 _ j)) * 2 ^ j)%nat.
+  \sum_(j < i.+1) (((xas' !_ (Wi j) : nat) + xbs' !_ (Wi j)) * 2 ^ j)%nat.
 
-Eval compute in (dec_eq (inord 1) [tuple true; true] [tuple false; false]).
-
-
+Eval compute in
+  (dec_eq (inord 1) [tuple true; true; true] [tuple true; false; false]).
 
 
 
