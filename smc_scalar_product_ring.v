@@ -4,6 +4,42 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
+Section fintype_extra.
+Lemma bump0 n : bump 0 n = n.+1.
+Proof. by rewrite /bump leq0n add1n. Qed.
+End fintype_extra.
+
+Section seq_extra.
+Lemma take_zip (S T : Type) (s : seq S) (t : seq T) n :
+  take n (zip s t) = zip (take n s) (take n t).
+Proof. by elim: n s t => [|n IH] [|s1 s] [|t1 t] //=; rewrite IH. Qed.
+
+Lemma nth_zip' (S T : Type) (x : S) (y : T) s t i :
+  i < minn (size s) (size t) ->
+  nth (x, y) (zip s t) i = (nth x s i, nth y t i).
+Proof.
+move=> ?.
+rewrite -(@nth_take (minn (size s) (size t))) //.
+rewrite take_zip nth_zip; last first.
+  by rewrite !size_take_min minnAC -[RHS]minnA !minnn.
+by rewrite !nth_take.
+Qed.
+
+Lemma nth_unzip1 (S T : Type) x y (s : seq (S * T)) i :
+  nth x (unzip1 s) i = (nth (x,y) s i).1.
+Proof.
+have /orP [H|?] := leqVgt (size s) i; last by rewrite (nth_map (x,y)).
+by rewrite !nth_default ?size_map.
+Qed.
+
+Lemma nth_unzip2 (S T : Type) x y (s : seq (S * T)) i :
+  nth y (unzip2 s) i = (nth (x,y) s i).2.
+Proof.
+have /orP [H|?] := leqVgt (size s) i; last by rewrite (nth_map (x,y)).
+by rewrite !nth_default ?size_map.
+Qed.
+End seq_extra.
+
 Import GRing.Theory Num.Theory.
 
 Reserved Notation "la '`*' lb" (at level 40, format "'[' la  `*  lb ']'").
@@ -212,10 +248,11 @@ Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let cbs := unzip2 (unzip1 acc) in
   let yas := unzip1 (unzip2 acc) in
   let ybs := unzip2 (unzip2 acc) in
-  size acc = i.+1 /\ rev yas = take i.+1 xas `+ rev cas /\
-  rev ybs = take i.+1 xbs `+ rev cbs.
-
-Local Notation "s `__ i" := (nth 0%N s i) (at level 2).
+  size acc = i.+1
+  /\ (rev cas)`_0 = 0  (* i.e. cas`_i = 0 *)
+  /\ (rev cbs)`_0 = 0
+  /\ rev yas = take i.+1 xas `+ rev cas
+  /\ rev ybs = take i.+1 xbs `+ rev cbs.
 
 Definition decimal_eq (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) := 
   let cas := unzip1 (unzip1 acc) in
@@ -224,18 +261,11 @@ Definition decimal_eq (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let ybs := unzip2 (unzip2 acc) in
   ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i.+1 +
    \sum_(j < i.+1)
-     (([seq nat_of_bool b | b <- yas] `__ j)
-      + [seq nat_of_bool b | b <- ybs] `__ j)%N * 2 ^ (i-j) =
+     ((yas `_ j)%R + (ybs `_ j)%R)%N * 2 ^ (i-j) =
      \sum_(j < i.+1) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
 
 Definition acc_correct' (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
-  let cas := unzip1 (unzip1 acc) in
-  let cbs := unzip2 (unzip1 acc) in
-  let yas := unzip1 (unzip2 acc) in
-  let ybs := unzip2 (unzip2 acc) in
-  size acc = i.+1 /\ rev yas = take i.+1 xas `+ rev cas /\
-  rev ybs = take i.+1 xbs `+ rev cbs /\
-  decimal_eq acc i.
+  acc_correct acc i /\ decimal_eq acc i.
 
 Lemma rev1 [T : Type] (x : T) : rev [:: x] = [:: x].
 Proof. by []. Qed.
@@ -248,13 +278,36 @@ move/succn_inj/size0nil->.
 by exists a.
 Qed.
 
+Lemma rev_add (R : ringType) (s t : seq R) :
+  size s = size t -> rev (s `+ t) = rev s `+ rev t.
+Proof. by move=> ?; rewrite /add -map_rev rev_zip. Qed.
+
+Lemma nth_add' (R : ringType) (s t : seq R) (i : nat) :
+  (i < minn (size s) (size t))%N -> (s `+ t) `_ i = s `_ i + t `_ i.
+Proof.
+move=> ist.
+rewrite /add (nth_map (GRing.zero _)); last by rewrite size_zip.
+by rewrite nth_zip' //.
+Qed.
+
+Lemma nth_add (R : ringType) (s t : seq R) (i : nat) :
+  size s = size t -> (s `+ t) `_ i = s `_ i + t `_ i.
+Proof.
+move=> st.
+have /orP [zst|] := leqVgt (size (zip s t)) i; last first.
+  by rewrite size_zip; exact: nth_add'.
+rewrite !nth_default ?addr0 //.
+- by move: zst; rewrite size_zip st minnn.
+- by move: zst; rewrite size_zip -st minnn.
+- by rewrite size_map.
+Qed.
+
 Lemma acc_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :
-  (rev (unzip1 (unzip1 acc)))`_0 = 0 ->
-  (rev (unzip2 (unzip1 acc)))`_0 = 0 ->
   acc_correct acc i -> decimal_eq acc i.
 Proof.
-move=> ca0 cb0 [] size_accSi [].
+clear sps W S.
 rewrite /decimal_eq.
+move=> [] size_acc [] cas0 [] cbs0 [].
 move/(congr1 rev); rewrite revK => ->.
 move/(congr1 rev); rewrite revK => ->.
 (*
@@ -270,20 +323,121 @@ rewrite [RHS](_ : _ = XX); last first.
 rewrite /XX {XX}.
 *)
 under [RHS]eq_bigr do rewrite !(tnth_nth 0).
-move: i size_accSi.
-induction n as [|n0].
+move: xas xbs acc i size_acc cas0 cbs0; clear xas xbs.
+apply (Wf_nat.lt_wf_ind n); clear n.
+
+move=> n IHn xas xbs acc i size_acc cas0 cbs0.
+(*Search (\big[_/_]_(_ < _.+1) _).*)
+rewrite [in LHS]big_ord_recr [in RHS]big_ord_recl/=.
+rewrite subnn expn0 !muln1.
+rewrite addnC -addnA addnCA.
+congr addn.
+  have casi: (unzip1 (unzip1 acc))`_i = 0.
+    by move: cas0; rewrite nth_rev !size_map size_acc // subn1 -pred_Sn.
+  have cbsi: (unzip2 (unzip1 acc))`_i = 0.
+    by move: cbs0; rewrite nth_rev !size_map size_acc // subn1 -pred_Sn.
+  have size_takexs (xs : (n.+1).-tuple B) : size (take i.+1 xs) = i.+1.
+    rewrite size_take size_tuple.
+    have:= (ltn_ord i); rewrite leq_eqVlt => /orP [/eqP ni|-> //].
+    by rewrite ni if_same.
+  have size_takeacc := (size_takexs, size_rev, size_map, size_acc).
+  rewrite !rev_add ?size_takeacc // !revK.
+  rewrite !nth_add ?size_takeacc //.
+  rewrite casi cbsi !addr0.
+  rewrite !nth_rev ?size_takexs // subnn.
+  by rewrite !nth_take.
+rewrite addnC.
+case: i size_acc => /= -[_ size_acc|i].
+  move: size_acc cas0 cbs0.
+  case/size_seq1=> [[[ca cb] [ya yb]]] -> /= -> -> /=.
+  by rewrite mul0n add0n !big_ord0.
+rewrite ltnS=> ni size_acc.
+(*
+have /eqP size_xas': size (take i.+1 xas) = i.+1.
+  by rewrite size_take_min size_tuple; apply/minn_idPl/ltnW; rewrite ltnS.
+have /eqP size_xbs': size (take i.+1 xbs) = i.+1.
+  by rewrite size_take_min size_tuple; apply/minn_idPl/ltnW; rewrite ltnS.
+*)
+have /eqP size_xas': size (behead (take i.+2 xas)) = i.+1.
+  rewrite size_behead size_take_min size_tuple [X in X.-1](_ : _ = i.+2) //.
+  by apply/minn_idPl; rewrite ltnS.
+have /eqP size_xbs': size (behead (take i.+2 xbs)) = i.+1.
+  rewrite size_behead size_take_min size_tuple [X in X.-1](_ : _ = i.+2) //.
+  by apply/minn_idPl; rewrite ltnS.
+set xas' := Tuple size_xas'.
+set xbs' := Tuple size_xbs'.
+set acc' := drop 1 acc.
+have size_acc': size acc' = i.+1 by rewrite size_drop size_acc subn1 -pred_Sn.
+have cas0': (rev (unzip1 (unzip1 acc')))`_0 = 0.
+  move: cas0.
+  rewrite -!map_rev.
+  do ! (rewrite (nth_map (GRing.zero _))
+          ?size_map ?size_rev ?size_acc' ?size_acc //).
+  rewrite !nth_rev ?size_acc ?size_acc' // !subn1 -!pred_Sn.
+  by rewrite nth_drop add1n.
+have cbs0': (rev (unzip2 (unzip1 acc')))`_0 = 0.
+  move: cbs0.
+  rewrite -!map_rev.
+  do ! (rewrite (nth_map (GRing.zero _))
+          ?size_map ?size_rev ?size_acc' ?size_acc //).
+  rewrite !nth_rev ?size_acc ?size_acc' // !subn1 -!pred_Sn.
+  by rewrite nth_drop add1n.
+under [in LHS]eq_bigr=> j _.
+  rewrite -[X in (X - j)%N]addn1 [X in (X - j)%N]addnC subDnAC; last first.
+    by rewrite -ltnS ltn_ord.
+  rewrite addn1 expnSr mulnA.
+  over.  
+rewrite -big_distrl /= expnSr mulnA -mulnDl /=.
+under [RHS]eq_bigr=> j _.
+  rewrite bump0.
+  have-> : xas`_j.+1 = xas'`_(@Wi _ (Ordinal ni) j)
+    by rewrite nth_behead nth_take //= ltnS ltn_ord.
+  have-> : xbs`_j.+1 = xbs'`_(@Wi _ (Ordinal ni) j)
+    by rewrite nth_behead nth_take //= ltnS ltn_ord.
+  rewrite expnS (mulnC 2%N) mulnA.
+  over.
+rewrite -big_distrl /=.
+congr muln.
+have:= IHn i (ltP ni) xas' xbs' acc' ord_max size_acc' cas0' cbs0'.
+set LHS' := (X in X = _ -> _).
+set RHS' := (X in _ = X -> _).
+move=> H.
+rewrite [LHS](_ : _ = LHS'); last first.
+  congr addn.
+    admit.
+  apply eq_bigr => /= j _.
+  congr muln.
+  have:= ni; rewrite -ltnS => /minn_idPl => minnSin.
+  set size_simpl :=
+    (size_take_min, size_behead, size_rev, size_map, size_tuple,
+      minnSin, minnn, size_acc, size_acc').
+  rewrite !rev_add ?size_simpl //.
+  rewrite !revK !nth_add ?size_simpl //.
+  rewrite !nth_rev ?size_simpl ?ltn_ord ?ltnS //; try exact/ltnW.
+  rewrite !nth_take ?ltn_subrL //.
+  rewrite !nth_behead !nth_take ?subSS ?ltnS ?leq_subr // !subSn.
+  rewrite !(nth_unzip2 (GRing.zero _) (GRing.zero _)).
+  rewrite !(nth_unzip1 (GRing.zero _) (GRing.zero _)).
+  rewrite nth_drop.
+
+  rewrite -!drop1 !take_drop addn1 -!take_min minnn.
+
+case=> [|n]; move=> IHn xas xbs.
+  case: (tupleP xas) => xa xas'.
+  case: (tupleP xbs) => xb xbs'.
+  rewrite !tuple0 /= !tuple0 /=.
   case=> i /=.
   move/ltnSE; rewrite leqn0 => /eqP -> acc1.
   move: acc1 ca0 cb0.
-  Search (\big[_/_]_(_<1) _).
   rewrite !big_ord1.
   case/size_seq1=> a /= -> /= -> ->.
-  rewrite !rev1 subnn expn0.
-  case: xas => xas' /= /eqP /size_seq1 [] xa -> /=.
-  case: xbs => xbs' /= /eqP /size_seq1 [] xb -> /=.
   by rewrite expn1 !addr0 mul0n muln1 add0n.
-case=> i /= iltn0.
-STOP
+case=> i /=; rewrite leq_eqVlt => /orP [].
+  move/eqP/succn_inj-> => size_acc.
+
+case: (tupleP xas) => xa xas'.
+case: (tupleP xbs) => xb xbs'.
+move: IHn0 => /(_ xas' xbs') => IHn0.
 
  
 Definition dec_eq (i: 'I_2.+1) (xas' xbs': (2.+1).-tuple B) : nat :=
