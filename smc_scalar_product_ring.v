@@ -5,11 +5,22 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 Section fintype_extra.
-Lemma bump0 n : bump 0 n = n.+1.
-Proof. by rewrite /bump leq0n add1n. Qed.
+Lemma bump0 n : bump 0 n = n.+1. Proof. by []. Qed.
 End fintype_extra.
 
 Section seq_extra.
+Lemma rev1 [T : Type] (x : T) : rev [:: x] = [:: x].
+Proof. by []. Qed.
+
+(* should be split int size_seq0 and size_seqS *)
+Lemma size_seq1 [T : Type] (s : seq T) :
+  size s = 1%N -> exists t, s = [:: t].
+Proof.
+case: s => //= a s.
+move/succn_inj/size0nil->.
+by exists a.
+Qed.
+
 Lemma take_zip (S T : Type) (s : seq S) (t : seq T) n :
   take n (zip s t) = zip (take n s) (take n t).
 Proof. by elim: n s t => [|n IH] [|s1 s] [|t1 t] //=; rewrite IH. Qed.
@@ -267,17 +278,6 @@ Definition decimal_eq (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
 Definition acc_correct' (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   acc_correct acc i /\ decimal_eq acc i.
 
-Lemma rev1 [T : Type] (x : T) : rev [:: x] = [:: x].
-Proof. by []. Qed.
-
-Lemma size_seq1 [T : Type] (s : seq T) :
-  size s = 1%N -> exists t, s = [:: t].
-Proof.
-case: s => //= a s.
-move/succn_inj/size0nil->.
-by exists a.
-Qed.
-
 Lemma rev_add (R : ringType) (s t : seq R) :
   size s = size t -> rev (s `+ t) = rev s `+ rev t.
 Proof. by move=> ?; rewrite /add -map_rev rev_zip. Qed.
@@ -368,6 +368,10 @@ set xas' := Tuple size_xas'.
 set xbs' := Tuple size_xbs'.
 set acc' := drop 1 acc.
 have size_acc': size acc' = i.+1 by rewrite size_drop size_acc subn1 -pred_Sn.
+(*
+set acc' := take i.+1 acc.
+have size_acc': size acc' = i.+1 by rewrite size_take size_acc ltnSn.
+*)
 have cas0': (rev (unzip1 (unzip1 acc')))`_0 = 0.
   move: cas0.
   rewrite -!map_rev.
@@ -419,7 +423,8 @@ rewrite [LHS](_ : _ = LHS'); last first.
   rewrite !(nth_unzip2 (GRing.zero _) (GRing.zero _)).
   rewrite !(nth_unzip1 (GRing.zero _) (GRing.zero _)).
   rewrite nth_drop.
-
+STOP
+    
   rewrite -!drop1 !take_drop addn1 -!take_min minnn.
 
 case=> [|n]; move=> IHn xas xbs.
