@@ -277,7 +277,7 @@ Definition decimal_eq (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let ybs := unzip2 (unzip2 acc) in
   ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i +
    \sum_(j < i)
-     (yas `_ j + ybs `_ j)%R * 2 ^ (i-j) =
+     (yas `_ j + ybs `_ j)%R * 2 ^ (i-j.+1) =
      \sum_(j < i) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
 
 Definition acc_correct' (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
@@ -347,7 +347,7 @@ rewrite (take_nth 0); last by rewrite size_tuple.
 rewrite -cats1 /add zip_cat; last first.
   by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW.
 rewrite map_cat /= 2!cats1 => /rcons_inj [] Hybs Hyb.
-rewrite big_ord_recl /= subn0.
+rewrite big_ord_recl /= subSS subn0.
 under eq_bigr do rewrite bump0 subSS.
 rewrite [RHS]big_ord_recr /=.
 rewrite !nth_cat !size_rev !size_map Hsz /= in ca0 cb0.
@@ -355,6 +355,17 @@ rewrite -(Hi (ltnW Hin) acc) // {Hi}.
 rewrite addnA.
 rewrite [RHS]addnAC.
 congr addn.
+case: acc Hsz {Hyas Hybs} ca0 cb0 => [|[[ca' cb'] [ya' yb']] acc] //= [Hsz].
+(*
+rewrite !rev_cons !(take_nth 0).
+rewrite !zip_rcons;
+  try by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW // ltnW.
+rewrite !map_rcons.
+move/rcons_inj => [Hyas Hya'] /rcons_inj [Hybs Hyb'].
+rewrite zip_rcons; last first.
+  by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW // ltnW.
+Search take rcons.
+*)
 Abort.
  
 Definition dec_eq (i: 'I_2.+1) (xas' xbs': (2.+1).-tuple B) : nat :=
