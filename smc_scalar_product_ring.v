@@ -257,7 +257,7 @@ Definition zn_to_z2 :=
 	let init := [:: ((0, 0), (tnth xas 0, tnth xbs 0))] in  (* For party A,B: c0=0, y0=x0 *)
 	foldl zn_to_z2_folder init (ord_tuple n). 
 
-Let Wi {n} {m : 'I_n} : 'I_m.+1 -> 'I_n := @widen_ord _ n (ltn_ord m).
+Let Wi {n} {m : 'I_n} : 'I_m -> 'I_n := @widen_ord _ n (ltnW (ltn_ord m)).
 
 Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let cas := unzip1 (unzip1 acc) in
@@ -275,10 +275,10 @@ Definition decimal_eq (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let cbs := unzip2 (unzip1 acc) in
   let yas := unzip1 (unzip2 acc) in
   let ybs := unzip2 (unzip2 acc) in
-  ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i.+1 +
-   \sum_(j < i.+1)
-     ((yas `_ j)%R + (ybs `_ j)%R)%N * 2 ^ (i-j) =
-     \sum_(j < i.+1) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
+  ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i +
+   \sum_(j < i)
+     (yas `_ j + ybs `_ j)%R * 2 ^ (i-j) =
+     \sum_(j < i) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
 
 Definition acc_correct' (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   acc_correct acc i /\ decimal_eq acc i.
@@ -334,11 +334,7 @@ move: acc cas0 cbs0 size_acc Hyas Hybs.
 case: i.
 elim=> /= [|i Hi] Hin.
     case => [|[[ca cb] [ya yb]] []] //= -> -> _.
-    rewrite !rev1 => -> ->.
-    rewrite !big_ord1.
-    move: xas => [[| xa ? ] xha] //=. (* equal to `case: xas.`; case: sometimes need extra brackets. *)
-    move: xbs => [[| xb ? ] xhb] //=.
-    by rewrite !mul0n !add0n !subn0 !addr0.
+    by rewrite !big_ord0 addn0 addr0 mul0n.
     (* end of the base case. *)
 case => [|[[ca cb] [ya yb]] acc] //=.
 rewrite !rev_cons -!cats1.
@@ -355,12 +351,11 @@ rewrite big_ord_recl /= subn0.
 under eq_bigr do rewrite bump0 subSS.
 rewrite [RHS]big_ord_recr /=.
 rewrite !nth_cat !size_rev !size_map Hsz /= in ca0 cb0.
-rewrite -(Hi (ltnW Hin) acc) //.
+rewrite -(Hi (ltnW Hin) acc) // {Hi}.
 rewrite addnA.
 rewrite [RHS]addnAC.
 congr addn.
 Abort.
-
  
 Definition dec_eq (i: 'I_2.+1) (xas' xbs': (2.+1).-tuple B) : nat :=
   \sum_(j < i.+1) (((xas' !_ (Wi j) : nat) + xbs' !_ (Wi j)) * 2 ^ j)%nat.
