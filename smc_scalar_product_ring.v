@@ -227,11 +227,16 @@ Section zn_to_z2_ntuple.
 
 Variable (n: nat) (sps: n.-tuple (SMC B)) (xas xbs: n.+1.-tuple B).
 
+
+
 Let W {n} (i : 'I_n) : 'I_n.+1 := widen_ord (@leqnSn _) i.
 Let S {n} (i : 'I_n) : 'I_n.+1 := lift ord0 i.
 (* Memo: Use Let: things disappear after closing the section. *)
 
 Notation "t '!_' i" := (tnth t i) (at level 10). (* lv9: no parenthesis; so lv10*)
+
+Hypothesis xan : xas!_(ord_max) = false.
+Hypothesis xbn : xbs!_(ord_max) = false.
 
 (*acc: carry-bit Alice, Bob will receive; results Alice, bob will receive*)
 Definition zn_to_z2_folder (acc: list ((B * B) * (B * B))) (i: 'I_n):
@@ -323,7 +328,25 @@ rewrite [RHS](_ : _ = XX); last first.
 rewrite /XX {XX}.
 *)
 under [RHS]eq_bigr do rewrite !(tnth_nth 0).
-move: xas xbs acc i size_acc cas0 cbs0; clear xas xbs.
+move: acc cas0 cbs0 size_acc.
+case: i.
+elim=> [|i Hi] Hin /=.
+    case => [|[[ca cb] [ya yb]] []] //= -> -> _.
+    rewrite rev1.
+    rewrite !big_ord1.
+    move: xas => [[| xa ? ] xha] //=. (* equal to `case: xas.`; case: sometimes need extra brackets. *)
+    move: xbs => [[| xb ? ] xhb] //=.
+    rewrite !take0 /=.
+    rewrite !mul0n !add0n !subn0 !addr0.
+    by []. (* end of the base case. *)
+
+case => [|[[ca cb] [ya yb]] acc] //=.
+rewrite !rev_cons.
+
+
+    
+
+                      
 apply (Wf_nat.lt_wf_ind n); clear n.
 
 move=> n IHn xas xbs acc i size_acc cas0 cbs0.
