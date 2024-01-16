@@ -257,7 +257,7 @@ Definition zn_to_z2 :=
 	let init := [:: ((0, 0), (tnth xas 0, tnth xbs 0))] in  (* For party A,B: c0=0, y0=x0 *)
 	foldl zn_to_z2_folder init (ord_tuple n). 
 
-Let Wi {n} {m : 'I_n} : 'I_m.+1 -> 'I_n := @widen_ord _ n (ltn_ord m).
+Let Wi {n} {m : 'I_n} : 'I_m -> 'I_n := @widen_ord _ n (ltnW (ltn_ord m)).
 
 Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let cas := unzip1 (unzip1 acc) in
@@ -275,10 +275,10 @@ Definition decimal_eq (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let cbs := unzip2 (unzip1 acc) in
   let yas := unzip1 (unzip2 acc) in
   let ybs := unzip2 (unzip2 acc) in
-  ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i.+1 +
-   \sum_(j < i.+1)
-     ((yas `_ j)%R + (ybs `_ j)%R)%N * 2 ^ (i-j) =
-     \sum_(j < i.+1) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
+  ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i +
+   \sum_(j < i)
+     (yas `_ j + ybs `_ j)%R * 2 ^ (i-j.+1) =
+     \sum_(j < i) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
 
 Definition acc_correct' (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   acc_correct acc i /\ decimal_eq acc i.
@@ -312,9 +312,11 @@ Lemma acc_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :
 Proof.
 clear sps W S.
 rewrite /decimal_eq.
-move=> [] size_acc [] cas0 [] cbs0 [].
+move=> [] size_acc [] cas0 [] cbs0 [] Hyas Hybs.
+(*
 move/(congr1 rev); rewrite revK => ->.
 move/(congr1 rev); rewrite revK => ->.
+*)
 (*
 under [RHS]eq_bigr => j _.
   rewrite !(tnth_nth 0).
@@ -328,145 +330,43 @@ rewrite [RHS](_ : _ = XX); last first.
 rewrite /XX {XX}.
 *)
 under [RHS]eq_bigr do rewrite !(tnth_nth 0).
-move: acc cas0 cbs0 size_acc.
+move: acc cas0 cbs0 size_acc Hyas Hybs.
 case: i.
-elim=> [|i Hi] Hin /=.
+elim=> /= [|i Hi] Hin.
     case => [|[[ca cb] [ya yb]] []] //= -> -> _.
-    rewrite rev1.
-    rewrite !big_ord1.
-    move: xas => [[| xa ? ] xha] //=. (* equal to `case: xas.`; case: sometimes need extra brackets. *)
-    move: xbs => [[| xb ? ] xhb] //=.
-    rewrite !take0 /=.
-    rewrite !mul0n !add0n !subn0 !addr0.
-    by []. (* end of the base case. *)
-
+    by rewrite !big_ord0 addn0 addr0 mul0n.
+    (* end of the base case. *)
 case => [|[[ca cb] [ya yb]] acc] //=.
-rewrite !rev_cons.
-
-
-    
-
-                      
-apply (Wf_nat.lt_wf_ind n); clear n.
-
-move=> n IHn xas xbs acc i size_acc cas0 cbs0.
-(*Search (\big[_/_]_(_ < _.+1) _).*)
-rewrite [in LHS]big_ord_recr [in RHS]big_ord_recl/=.
-rewrite subnn expn0 !muln1.
-rewrite addnC -addnA addnCA.
+rewrite !rev_cons -!cats1.
+move=> ca0 cb0 [Hsz].
+rewrite (take_nth 0); last by rewrite size_tuple.
+rewrite -cats1 /add zip_cat; last first.
+  by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW.
+rewrite map_cat /= 2!cats1 => /rcons_inj [] Hyas Hya.
+rewrite (take_nth 0); last by rewrite size_tuple.
+rewrite -cats1 /add zip_cat; last first.
+  by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW.
+rewrite map_cat /= 2!cats1 => /rcons_inj [] Hybs Hyb.
+rewrite big_ord_recl /= subSS subn0.
+under eq_bigr do rewrite bump0 subSS.
+rewrite [RHS]big_ord_recr /=.
+rewrite !nth_cat !size_rev !size_map Hsz /= in ca0 cb0.
+rewrite -(Hi (ltnW Hin) acc) // {Hi}.
+rewrite addnA.
+rewrite [RHS]addnAC.
 congr addn.
-  have casi: (unzip1 (unzip1 acc))`_i = 0.
-    by move: cas0; rewrite nth_rev !size_map size_acc // subn1 -pred_Sn.
-  have cbsi: (unzip2 (unzip1 acc))`_i = 0.
-    by move: cbs0; rewrite nth_rev !size_map size_acc // subn1 -pred_Sn.
-  have size_takexs (xs : (n.+1).-tuple B) : size (take i.+1 xs) = i.+1.
-    rewrite size_take size_tuple.
-    have:= (ltn_ord i); rewrite leq_eqVlt => /orP [/eqP ni|-> //].
-    by rewrite ni if_same.
-  have size_takeacc := (size_takexs, size_rev, size_map, size_acc).
-  rewrite !rev_add ?size_takeacc // !revK.
-  rewrite !nth_add ?size_takeacc //.
-  rewrite casi cbsi !addr0.
-  rewrite !nth_rev ?size_takexs // subnn.
-  by rewrite !nth_take.
-rewrite addnC.
-case: i size_acc => /= -[_ size_acc|i].
-  move: size_acc cas0 cbs0.
-  case/size_seq1=> [[[ca cb] [ya yb]]] -> /= -> -> /=.
-  by rewrite mul0n add0n !big_ord0.
-rewrite ltnS=> ni size_acc.
+case: acc Hsz {Hyas Hybs} ca0 cb0 => [|[[ca' cb'] [ya' yb']] acc] //= [Hsz].
 (*
-have /eqP size_xas': size (take i.+1 xas) = i.+1.
-  by rewrite size_take_min size_tuple; apply/minn_idPl/ltnW; rewrite ltnS.
-have /eqP size_xbs': size (take i.+1 xbs) = i.+1.
-  by rewrite size_take_min size_tuple; apply/minn_idPl/ltnW; rewrite ltnS.
+rewrite !rev_cons !(take_nth 0).
+rewrite !zip_rcons;
+  try by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW // ltnW.
+rewrite !map_rcons.
+move/rcons_inj => [Hyas Hya'] /rcons_inj [Hybs Hyb'].
+rewrite zip_rcons; last first.
+  by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW // ltnW.
+Search take rcons.
 *)
-have /eqP size_xas': size (behead (take i.+2 xas)) = i.+1.
-  rewrite size_behead size_take_min size_tuple [X in X.-1](_ : _ = i.+2) //.
-  by apply/minn_idPl; rewrite ltnS.
-have /eqP size_xbs': size (behead (take i.+2 xbs)) = i.+1.
-  rewrite size_behead size_take_min size_tuple [X in X.-1](_ : _ = i.+2) //.
-  by apply/minn_idPl; rewrite ltnS.
-set xas' := Tuple size_xas'.
-set xbs' := Tuple size_xbs'.
-set acc' := drop 1 acc.
-have size_acc': size acc' = i.+1 by rewrite size_drop size_acc subn1 -pred_Sn.
-(*
-set acc' := take i.+1 acc.
-have size_acc': size acc' = i.+1 by rewrite size_take size_acc ltnSn.
-*)
-have cas0': (rev (unzip1 (unzip1 acc')))`_0 = 0.
-  move: cas0.
-  rewrite -!map_rev.
-  do ! (rewrite (nth_map (GRing.zero _))
-          ?size_map ?size_rev ?size_acc' ?size_acc //).
-  rewrite !nth_rev ?size_acc ?size_acc' // !subn1 -!pred_Sn.
-  by rewrite nth_drop add1n.
-have cbs0': (rev (unzip2 (unzip1 acc')))`_0 = 0.
-  move: cbs0.
-  rewrite -!map_rev.
-  do ! (rewrite (nth_map (GRing.zero _))
-          ?size_map ?size_rev ?size_acc' ?size_acc //).
-  rewrite !nth_rev ?size_acc ?size_acc' // !subn1 -!pred_Sn.
-  by rewrite nth_drop add1n.
-under [in LHS]eq_bigr=> j _.
-  rewrite -[X in (X - j)%N]addn1 [X in (X - j)%N]addnC subDnAC; last first.
-    by rewrite -ltnS ltn_ord.
-  rewrite addn1 expnSr mulnA.
-  over.  
-rewrite -big_distrl /= expnSr mulnA -mulnDl /=.
-under [RHS]eq_bigr=> j _.
-  rewrite bump0.
-  have-> : xas`_j.+1 = xas'`_(@Wi _ (Ordinal ni) j)
-    by rewrite nth_behead nth_take //= ltnS ltn_ord.
-  have-> : xbs`_j.+1 = xbs'`_(@Wi _ (Ordinal ni) j)
-    by rewrite nth_behead nth_take //= ltnS ltn_ord.
-  rewrite expnS (mulnC 2%N) mulnA.
-  over.
-rewrite -big_distrl /=.
-congr muln.
-have:= IHn i (ltP ni) xas' xbs' acc' ord_max size_acc' cas0' cbs0'.
-set LHS' := (X in X = _ -> _).
-set RHS' := (X in _ = X -> _).
-move=> H.
-rewrite [LHS](_ : _ = LHS'); last first.
-  congr addn.
-    admit.
-  apply eq_bigr => /= j _.
-  congr muln.
-  have:= ni; rewrite -ltnS => /minn_idPl => minnSin.
-  set size_simpl :=
-    (size_take_min, size_behead, size_rev, size_map, size_tuple,
-      minnSin, minnn, size_acc, size_acc').
-  rewrite !rev_add ?size_simpl //.
-  rewrite !revK !nth_add ?size_simpl //.
-  rewrite !nth_rev ?size_simpl ?ltn_ord ?ltnS //; try exact/ltnW.
-  rewrite !nth_take ?ltn_subrL //.
-  rewrite !nth_behead !nth_take ?subSS ?ltnS ?leq_subr // !subSn.
-  rewrite !(nth_unzip2 (GRing.zero _) (GRing.zero _)).
-  rewrite !(nth_unzip1 (GRing.zero _) (GRing.zero _)).
-  rewrite nth_drop.
-STOP
-    
-  rewrite -!drop1 !take_drop addn1 -!take_min minnn.
-
-case=> [|n]; move=> IHn xas xbs.
-  case: (tupleP xas) => xa xas'.
-  case: (tupleP xbs) => xb xbs'.
-  rewrite !tuple0 /= !tuple0 /=.
-  case=> i /=.
-  move/ltnSE; rewrite leqn0 => /eqP -> acc1.
-  move: acc1 ca0 cb0.
-  rewrite !big_ord1.
-  case/size_seq1=> a /= -> /= -> ->.
-  by rewrite expn1 !addr0 mul0n muln1 add0n.
-case=> i /=; rewrite leq_eqVlt => /orP [].
-  move/eqP/succn_inj-> => size_acc.
-
-case: (tupleP xas) => xa xas'.
-case: (tupleP xbs) => xb xbs'.
-move: IHn0 => /(_ xas' xbs') => IHn0.
-
+Abort.
  
 Definition dec_eq (i: 'I_2.+1) (xas' xbs': (2.+1).-tuple B) : nat :=
   \sum_(j < i.+1) (((xas' !_ (Wi j) : nat) + xbs' !_ (Wi j)) * 2 ^ j)%nat.
