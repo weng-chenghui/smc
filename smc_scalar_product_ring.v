@@ -72,6 +72,7 @@ Variable Z:ringType.
 Definition dotproduct (la lb: list Z) : Z :=
 	foldl (fun sum current => sum + current) 0 (zipWith (fun a b => a * b) la lb).
 
+
 Definition add (la lb: list Z) : list Z :=
 	map (fun a => a.1 + a.2) (zip la lb).
 
@@ -146,6 +147,14 @@ Section smc_scalar_product_facts.
 (* to prove, need com *)
 Variable R:comRingType.
 
+Lemma dotproduct_nil_lists  (la lb: list R) :
+        size la = 0%N /\ size lb = 0%N -> dotproduct la lb = 0.
+Proof.
+move=> [Hsza Hszb].
+rewrite /dotproduct.
+Admitted.
+
+
 Lemma dot_productC (aa bb : list R) : aa `* bb = bb `* aa.
 Admitted.
 
@@ -169,6 +178,13 @@ rewrite (dot_productC Xb Ra).
 ring.
 Qed.
 
+
+Lemma scalar_product_nil_lists (sp : SMC R) (Xa Xb : list R):
+  size Xa = 0%N /\ size Xb = 0%N /\ is_scalar_product sp -> sp Xa Xb = (0, 0).
+Proof.
+move=> [Hza [Hzb Hsp]].
+move:Hsp.
+Admitted.
 
 End smc_scalar_product_facts.
 
@@ -332,6 +348,13 @@ rewrite !nth_default ?addr0 //.
 - by rewrite size_map.
 Qed.
 
+Lemma nth_sp (i: 'I_n) :
+  let sp := sps !_ i in
+  is_scalar_product sp.
+Proof.
+  (* Not sure if this is provable but it shows in step2_correctP *)
+Abort.
+
 Lemma step2_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n) :
   let i_ := W i in
   step2_correct acc i.
@@ -346,11 +369,6 @@ case: i i_ Hsize Hyas Hybs.
 move=> Hi Hin Hi_ Hacc Hyas Hybs //.
 have:=size_tuple sps => Hsize_sps.
 Abort.
-
-    
-
-
-
 
 
 Lemma acc_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :
