@@ -122,9 +122,8 @@ Definition demo_Alice3_Bob2 : (Z * Z) :=
 Definition SMC := list Z -> list Z -> (Z * Z).
 
 Definition is_scalar_product (sp: SMC) :=
-	forall(Xa Xb: list Z),
-	let (ya, yb') := sp Xa Xb in
-	ya + yb' = Xa `* Xb.
+  forall(Xa Xb: list Z),
+  (sp Xa Xb).1 + (sp Xa Xb).2 = Xa `* Xb.
 
 End smc_scalar_product.
 
@@ -186,17 +185,21 @@ Definition step2_1 (sp: SMC B) (ci xi: (B * B)) : (B * B) :=
 Definition step2_1_correct (sp: SMC B) (ci xi: B * B) :=
     let alice_input := [:: ci.1; xi.1; xi.1] in
     let bob_input := [:: xi.2; ci.2; xi.2] in
-    let (tai, tbi) := step2_1 sp ci xi in
-    tai + tbi = alice_input `* bob_input .
+    let t := step2_1 sp ci xi in
+    t.1 + t.2 = alice_input `* bob_input .
 
 (* NOTE: this is not rewritable (yet). *)
 Lemma step2_1_correctP (sp: SMC B) (ci xi: B * B) :
 	is_scalar_product sp ->
         step2_1_correct sp ci xi.
 Proof.
-apply.
+move=>Hsp.
+rewrite /step2_1_correct.
+rewrite /step2_1.
+by rewrite Hsp.
 Qed.
-
+  
+  
 Lemma step2_1_correct' (sp: SMC B) (ci xi: B * B) :
 	is_scalar_product sp ->
 	let alice_input := [:: ci.1; xi.1; xi.1] in
@@ -333,11 +336,20 @@ Lemma step2_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n) :
   let i_ := W i in
   step2_correct acc i.
 Proof.
-  move=> i_.
-  rewrite /step2_correct.
-  rewrite /acc_correct.
-  move=> [Hsize [Hca0 [Hcb0 [Hyas Hybs]]]].
-  rewrite step2_1_correctP.
+move=> i_.
+rewrite /step2_correct.
+rewrite /acc_correct.
+move=> [Hsize [Hca0 [Hcb0 [Hyas Hybs]]]].
+rewrite /step2_1_correct.
+rewrite step2_1_correctP /=.
+case: i i_ Hsize Hyas Hybs.
+move=> Hi Hin Hi_ Hacc Hyas Hybs //.
+have:=size_tuple sps => Hsize_sps.
+Abort.
+
+    
+
+
 
 
 
