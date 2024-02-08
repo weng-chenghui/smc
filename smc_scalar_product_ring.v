@@ -261,6 +261,7 @@ Notation "t '!_' i" := (tnth t i) (at level 10). (* lv9: no parenthesis; so lv10
 
 Hypothesis xan : xas!_(ord_max) = false.
 Hypothesis xbn : xbs!_(ord_max) = false.
+Hypothesis sps_is_sp : forall i, is_scalar_product (sps !_ i).
 
 (*acc: carry-bit Alice, Bob will receive; results Alice, bob will receive*)
 Definition zn_to_z2_folder (acc: list ((B * B) * (B * B))) (i: 'I_n):
@@ -273,8 +274,7 @@ Definition zn_to_z2_folder (acc: list ((B * B) * (B * B))) (i: 'I_n):
 	let xa' := xas !_ i' in
 	let xb := xbs !_ i_ in
 	let xb' := xbs !_ i' in
-	let '(cs, yab) := step2_2 (step2_1 sp (ca, cb) (xa, xb)) (ca, cb) (xa, xb) (xa', xb') in
-	((cs, yab) :: acc).
+	step2_2 (step2_1 sp (ca, cb) (xa, xb)) (ca, cb) (xa, xb) (xa', xb') :: acc.
 
 (* xs[0] = lowest bit *)
 Definition zn_to_z2 :=
@@ -282,6 +282,12 @@ Definition zn_to_z2 :=
 	foldl zn_to_z2_folder init (ord_tuple n). 
 
 Let Wi {n} {m : 'I_n} : 'I_m -> 'I_n := @widen_ord _ n (ltnW (ltn_ord m)).
+
+(*
+ (((ca + cb)%R * 2 + (xas`_i + ca' + (xbs`_i + cb'))%R) * 2 ^ i)%N =
+  (((ca' + cb')%R + ((xas`_i)%R + (xbs`_i)%R)) * 2 ^ i)%N
+
+*)
 
 
 Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
@@ -293,7 +299,9 @@ Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   /\ (rev cas)`_0 = 0  (* i.e. cas`_i = 0 *)
   /\ (rev cbs)`_0 = 0
   /\ rev yas = take i.+1 xas `+ rev cas
-  /\ rev ybs = take i.+1 xbs `+ rev cbs.
+  /\ rev ybs = take i.+1 xbs `+ rev cbs
+  /\ (((cas `_ 0 + cbs `_ 0)%R * 2 + (xas`_i.-1 + cas `_ 1 + (xbs`_i.-1 + cbs `_ 1))%R))%N =
+  (((cas `_ 1 + cbs `_ 1)%R + ((xas`_i.-1)%R + (xbs`_i.-1)%R)))%N.
 
 Definition step2_correct (acc: list ((B * B) * (B * B))) (i: 'I_n) :=
   let cas := unzip1 (unzip1 acc) in
@@ -370,6 +378,49 @@ move=> Hi Hin Hi_ Hacc Hyas Hybs //.
 have:=size_tuple sps => Hsize_sps.
 Abort.
 
+Lemma add_cat (s1 s2 t1 t2 : seq B) :
+  size s1 = size t1 ->
+  add (s1 ++ s2) (t1 ++ t2) = add s1 t1 ++ add s2 t2.
+Proof. by move=> Hsize; rewrite /add zip_cat // map_cat. Qed.
+
+Lemma take1 (s: seq B):
+  (size s > 0)%N -> take 1 s = [::head 0 s].
+Proof.
+by case: s => [| ? []].
+Qed.
+
+
+Lemma zn_to_z2_folder_correct acc i:
+  acc_correct acc (W i) -> acc_correct (zn_to_z2_folder acc i) (S i).
+Proof.
+move=> []. 
+case Hacc: acc => [|[[cai_ cbi_] [ya yb]] acc'] //.
+rewrite -Hacc.
+move=> Hsz [Hca [Hcb [Hyas [Hybs _]]]].
+rewrite /zn_to_z2_folder {1}Hacc /=.
+have:=step2_1_correctP (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) (sps_is_sp i).
+rewrite /step2_1_correct /=. 
+destruct step2_1 as [tai_ tbi_].
+simpl.
+move=> Htai_tbi.
+have Hbump : bump 0 i = (W i).+1 by [].
+rewrite /acc_correct /= Hsz.
+split => //.
+rewrite Hbump.
+rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
+rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
+rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
+rewrite !(add_cat,rev_cat) //;
+  try by rewrite size_takel !(size_tuple,size_rev,size_map) // ltnS ltnW.
+rewrite nth_cat size_rev !size_map {1}Hacc Hca /=.
+rewrite nth_cat size_rev !size_map {1}Hacc Hcb /=.
+rewrite Hyas Hybs !rev1 !(tnth_nth 0) /=.
+do !split => //.
+rewrite Hacc /=.
+rewrite -(addrC tbi_) addrA -(addrA _ tai_) Htai_tbi.
+rewrite /dotproduct /=. (* calc dotproduct*)
+Qed.
+
 
 Lemma acc_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :
   acc_correct acc i -> decimal_eq acc i.
@@ -403,10 +454,12 @@ elim=> /= [|i Hi] Hin.
 case => [|[[ca cb] [ya yb]] acc] //=.
 rewrite !rev_cons -!cats1.
 move=> ca0 cb0 [Hsz].
+
 rewrite (take_nth 0); last by rewrite size_tuple.
 rewrite -cats1 /add zip_cat; last first.
   by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW.
 rewrite map_cat /= 2!cats1 => /rcons_inj [] Hyas Hya.
+
 rewrite (take_nth 0); last by rewrite size_tuple.
 rewrite -cats1 /add zip_cat; last first.
   by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW.
@@ -429,9 +482,23 @@ rewrite -(Hi (ltnW Hin) acc) // {Hi}.
 rewrite addnA.
 rewrite [RHS]addnAC.
 congr addn.
-case: acc Hsz {Hyas Hybs} ca0 cb0 => [|[[ca' cb'] [ya' yb']] acc] //= [Hsz].
+case: acc Hsz Hyas Hybs ca0 cb0 => [|[[ca' cb'] [ya' yb']] acc] //= [Hsz].
+(* Re-do what we have done for ya, yb; this time for ya', yb' *)
+
+rewrite !rev_cons.
+rewrite (take_nth 0); last by rewrite ltnW // size_tuple.
+rewrite -3!cats1 /add zip_cat; last first.
+  by rewrite size_rev !size_map Hsz size_takel //= ltnW // size_tuple ltnW //.
+rewrite map_cat /= 2!cats1 => /rcons_inj [] Hyas' ->.
+rewrite (take_nth 0); last by rewrite ltnW // size_tuple.
+rewrite -3!cats1 /add zip_cat; last first.
+  by rewrite size_rev !size_map Hsz size_takel //= ltnW // size_tuple ltnW //.
+rewrite map_cat /= 2!cats1 => /rcons_inj [] Hybs' ->.
+
+
 move=> Hca Hcb.
-rewrite -mulnDl.
+rewrite -mulnDl expnS mulnA -mulnDl.
+congr muln. (* new lemma: *)
 
 
 
