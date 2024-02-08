@@ -204,7 +204,6 @@ Definition step2_1_correct (sp: SMC B) (ci xi: B * B) :=
     let t := step2_1 sp ci xi in
     t.1 + t.2 = alice_input `* bob_input .
 
-(* NOTE: this is not rewritable (yet). *)
 Lemma step2_1_correctP (sp: SMC B) (ci xi: B * B) :
 	is_scalar_product sp ->
         step2_1_correct sp ci xi.
@@ -329,7 +328,6 @@ Definition step2_correct (acc: list ((B * B) * (B * B))) (i: 'I_n) :=
   acc_correct acc i_ -> @step2_1_correct sp (ca, cb) (xa, xb).
 
 
-
 Definition decimal_eq (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) := 
   let cas := unzip1 (unzip1 acc) in
   let cbs := unzip2 (unzip1 acc) in
@@ -368,14 +366,7 @@ rewrite !nth_default ?addr0 //.
 - by rewrite size_map.
 Qed.
 
-Lemma nth_sp (i: 'I_n) :
-  let sp := sps !_ i in
-  is_scalar_product sp.
-Proof.
-  (* Not sure if this is provable but it shows in step2_correctP *)
-Abort.
-
-Lemma step2_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n) :
+Lemma step2_correctP acc i:
   let i_ := W i in
   step2_correct acc i.
 Proof.
@@ -387,10 +378,8 @@ rewrite /step2_1_correct.
 rewrite step2_1_correctP /=.
 case: i i_ Hsize Hyas Hybs.
 move=> Hi Hin Hi_ Hacc Hyas Hybs //.
-have:=size_tuple sps => Hsize_sps.
-Abort.
-
-
+by have:=size_tuple sps => Hsize_sps.
+Qed.
 
 
 Lemma add_cat (s1 s2 t1 t2 : seq B) :
@@ -448,6 +437,8 @@ apply zn_to_z2_folder_correct.
 by apply iH.
 Qed.
 
+
+
 Lemma decimal_eqP (i: 'I_n.+1) :
   decimal_eq (zn_to_z2i i) i.
 Proof.
@@ -479,10 +470,18 @@ elim=> /= [|i Hi] Hin.
 rewrite ltnS in Hin.
 rewrite (_:i=Ordinal Hin) //. (*could use `have`, too; *)
 rewrite zn_to_z2iS /=.
-move: (zn_to_z2i_correct (W (Ordinal Hin))) => [] Hsz_acc [] _ [] _ [Hyas Hybs].
+move: (zn_to_z2i_correct (W (Ordinal Hin))).
+rewrite /acc_correct.
+move=>[] Hsz_acc [] _ [] _ [Hyas Hybs]. (*stack machine feeling: [] split, then <naming>...*)
+(*move=>[Hsz_acc [ _ [ _ [Hyas Hybs]]]].*) (* split /\ n times need n brakets *)
 rewrite /zn_to_z2_folder /=.
-move Hya: (zn_to_z2i i) Hsz_acc => [|[] [ca cb] [ya yb] acc] //=. 
-rewrite /step2_1. (* TODO: use lemma; should have some lemma about zn_to_z2_folder, instead of opening it *)
+move H: (zn_to_z2i i) Hsz_acc => [|[] [ca cb] [ya yb] acc] //=.
+
+
+
+move => Hsz_acc.
+rewrite /step2_1 //=. (* TODO: use lemma; should have some lemma about zn_to_z2_folder, instead of opening it *)
+
 
 
 
