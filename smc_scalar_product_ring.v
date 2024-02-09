@@ -419,13 +419,17 @@ do !split => //.
 rewrite Hacc /=.
 rewrite -(addrC tbi_) addrA -(addrA _ tai_) Htai_tbi.
 rewrite /dotproduct /=. (* calc dotproduct*)
+rewrite !(tnth_nth 0) /=.
+(* case analysis on bools*)
+clear.
+by move: cai_ (xas `_ i) cbi_ (xbs `_ i) => [] [] [] [].
 Qed.
 
 
 Lemma acc_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :
   acc_correct acc i -> decimal_eq acc i.
 Proof.
-clear sps W S.
+clear W S.
 rewrite /decimal_eq.
 move=> [] size_acc [] cas0 [] cbs0 [] Hyas Hybs.
 (*
