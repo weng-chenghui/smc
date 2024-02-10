@@ -292,6 +292,11 @@ Let Wi {n} {m : 'I_n} : 'I_m -> 'I_n := @widen_ord _ n (ltnW (ltn_ord m)).
 Definition carry_correct (ca cb ca' cb' xa xb : B) :=
   ((ca + cb)%R * 2 + (xa + ca' + (xb + cb'))%R = (ca' + cb')%R + (xa + xb))%N.
 
+Definition decimal_eq (cas cbs yas ybs : list B) (i: 'I_n.+1) := 
+  ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i +
+   \sum_(j < i) (yas `_ j.+1 + ybs `_ j.+1)%R * 2 ^ (i-j.+1) =
+     \sum_(j < i) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%N.
+
 Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let cas := unzip1 (unzip1 acc) in
   let cbs := unzip2 (unzip1 acc) in
@@ -302,11 +307,7 @@ Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   /\ (rev cbs)`_0 = 0
   /\ rev yas = take i.+1 xas `+ rev cas
   /\ rev ybs = take i.+1 xbs `+ rev cbs
-  /\
-  ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i +
-   \sum_(j < i)
-     (yas `_ j.+1 + ybs `_ j.+1)%R * 2 ^ (i-j.+1) =
-     \sum_(j < i) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
+  /\ decimal_eq cas cbs yas ybs i.
 
 Definition step2_correct (acc: list ((B * B) * (B * B))) (i: 'I_n) :=
   let cas := unzip1 (unzip1 acc) in
@@ -320,22 +321,6 @@ Definition step2_correct (acc: list ((B * B) * (B * B))) (i: 'I_n) :=
   let xa := (xas `_ i_) in
   let xb := (xbs `_ i_) in
   acc_correct acc i_ -> @step2_1_correct sp (ca, cb) (xa, xb).
-
-
-
-Definition decimal_eq (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) := 
-  let cas := unzip1 (unzip1 acc) in
-  let cbs := unzip2 (unzip1 acc) in
-  let yas := unzip1 (unzip2 acc) in
-  let ybs := unzip2 (unzip2 acc) in
-  ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i +
-   \sum_(j < i)
-     (yas `_ j.+1 + ybs `_ j.+1)%R * 2 ^ (i-j.+1) =
-     \sum_(j < i) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
-
-
-Definition acc_correct' (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
-  acc_correct acc i /\ decimal_eq acc i.
 
 Lemma rev_add (R : ringType) (s t : seq R) :
   size s = size t -> rev (s `+ t) = rev s `+ rev t.
@@ -360,13 +345,6 @@ rewrite !nth_default ?addr0 //.
 - by move: zst; rewrite size_zip -st minnn.
 - by rewrite size_map.
 Qed.
-
-Lemma nth_sp (i: 'I_n) :
-  let sp := sps !_ i in
-  is_scalar_product sp.
-Proof.
-  (* Not sure if this is provable but it shows in step2_correctP *)
-Abort.
 
 Lemma step2_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n) :
   let i_ := W i in
@@ -410,7 +388,7 @@ move=> Htai_tbi.
 have Hbump : bump 0 i = (W i).+1 by [].
 rewrite /acc_correct /= Hsz.
 split => //.
-rewrite {1 2 3}Hbump.
+rewrite Hbump.
 rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
 rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
 rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
@@ -429,12 +407,12 @@ have Hcc : carry_correct (cai_ * xas`_i + tai_) (cbi_ * xbs`_i + tbi_)
   by move: cai_ (xas`_i) (xbs`_i) cbi_ => [] [] [] [].
 do !split => //=.
 rewrite /carry_correct in Hcc.
-rewrite big_ord_recl /= subSS subn0.
+rewrite /decimal_eq big_ord_recl /= subSS subn0.
 under eq_bigr do rewrite bump0 subSS.
 rewrite [RHS]big_ord_recr /=.
-rewrite /= in Hdec.
 under [in RHS]eq_bigr do rewrite !(tnth_nth 0) /=.
 move: Hdec.
+rewrite /decimal_eq /=.
 under [in RHS]eq_bigr do rewrite !(tnth_nth 0) /=.
 move <-.
 rewrite addnA [RHS]addnC addnA.
@@ -456,7 +434,9 @@ rewrite zip_cat; last first.
 rewrite map_cat /= 2!cats1 => /rcons_inj [] _ ->.
 by rewrite !addrA.
 Qed.
- 
+
+
+
 Definition dec_eq (i: 'I_2.+1) (xas' xbs': (2.+1).-tuple B) : nat :=
   \sum_(j < i.+1) (((xas' !_ (Wi j) : nat) + xbs' !_ (Wi j)) * 2 ^ j)%nat.
 
