@@ -289,6 +289,8 @@ Let Wi {n} {m : 'I_n} : 'I_m -> 'I_n := @widen_ord _ n (ltnW (ltn_ord m)).
 
 *)
 
+Definition carry_correct (ca cb ca' cb' xa xb : B) :=
+  ((ca + cb)%R * 2 + (xa + ca' + (xb + cb'))%R = (ca' + cb')%R + (xa + xb))%N.
 
 Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   let cas := unzip1 (unzip1 acc) in
@@ -300,8 +302,13 @@ Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   /\ (rev cbs)`_0 = 0
   /\ rev yas = take i.+1 xas `+ rev cas
   /\ rev ybs = take i.+1 xbs `+ rev cbs
-  /\ (((cas `_ 0 + cbs `_ 0)%R * 2 + (xas`_i.-1 + cas `_ 1 + (xbs`_i.-1 + cbs `_ 1))%R))%N =
-  (((cas `_ 1 + cbs `_ 1)%R + ((xas`_i.-1)%R + (xbs`_i.-1)%R)))%N.
+  /\ (carry_correct
+        (cas `_ 0) (cbs `_ 0) (cas `_ 1) (cbs `_ 1) (xas`_i.-1) (xbs`_i.-1))
+  /\
+  ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i +
+   \sum_(j < i)
+     (yas `_ j.+1 + ybs `_ j.+1)%R * 2 ^ (i-j.+1) =
+     \sum_(j < i) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%nat.
 
 Definition step2_correct (acc: list ((B * B) * (B * B))) (i: 'I_n) :=
   let cas := unzip1 (unzip1 acc) in
@@ -396,7 +403,7 @@ Proof.
 move=> []. 
 case Hacc: acc => [|[[cai_ cbi_] [ya yb]] acc'] //.
 rewrite -Hacc.
-move=> Hsz [Hca [Hcb [Hyas [Hybs _]]]].
+move=> Hsz [Hca [Hcb [Hyas [Hybs [hcxs Hdec]]]]].
 rewrite /zn_to_z2_folder {1}Hacc /=.
 have:=step2_1_correctP (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) (sps_is_sp i).
 rewrite /step2_1_correct /=. 
@@ -406,7 +413,7 @@ move=> Htai_tbi.
 have Hbump : bump 0 i = (W i).+1 by [].
 rewrite /acc_correct /= Hsz.
 split => //.
-rewrite Hbump.
+rewrite {1 2 3}Hbump.
 rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
 rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
 rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
@@ -415,19 +422,55 @@ rewrite !(add_cat,rev_cat) //;
 rewrite nth_cat size_rev !size_map {1}Hacc Hca /=.
 rewrite nth_cat size_rev !size_map {1}Hacc Hcb /=.
 rewrite Hyas Hybs !rev1 !(tnth_nth 0) /=.
-do !split => //.
-rewrite Hacc /=.
-rewrite -(addrC tbi_) addrA -(addrA _ tai_) Htai_tbi.
-rewrite /dotproduct /=. (* calc dotproduct*)
+have Hcc : carry_correct (cai_ * xas`_i + tai_) (cbi_ * xbs`_i + tbi_)
+    (unzip1 (unzip1 acc))`_0 (unzip2 (unzip1 acc))`_0 xas`_i xbs`_i.
+  rewrite /carry_correct Hacc /=.
+  rewrite -(addrC tbi_) addrA -(addrA _ tai_) Htai_tbi.
+  rewrite /dotproduct /=. (* calc dotproduct*)
+  rewrite !(tnth_nth 0) /=.
+  clear.
+  by move: cai_ (xas`_i) (xbs`_i) cbi_ => [] [] [] [].
+do !split => //=.
+rewrite /carry_correct in Hcc.
+rewrite big_ord_recl /= subSS subn0.
+under eq_bigr do rewrite bump0 subSS.
+rewrite [RHS]big_ord_recr /=.
+rewrite /= in Hdec.
+under [in RHS]eq_bigr do rewrite !(tnth_nth 0) /=.
+move: Hdec.
+under [in RHS]eq_bigr do rewrite !(tnth_nth 0) /=.
+move <-.
+rewrite addnA.
+rewrite [RHS]addnC addnA.
+congr addn.
+rewrite expnS mulnA -!mulnDl.
+congr muln.
+rewrite !(tnth_nth 0) /= [RHS]addnC -Hcc.
+congr addn.
+rewrite !addrA (addrC _ xbs`_i) addrA -[in LHS](add0r (_ + _)).
+rewrite -addrA.
+congr nat_of_bool.
+f_equal.
+
 Qed.
 
 
 Lemma acc_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :
   acc_correct acc i -> decimal_eq acc i.
 Proof.
-clear sps W S.
+clear W S.
 rewrite /decimal_eq.
-move=> [] size_acc [] cas0 [] cbs0 [] Hyas Hybs.
+under [RHS]eq_bigr do rewrite !(tnth_nth 0).
+case: i acc.
+elim=> /= [|i Hi] Hin acc.
+    case.
+    case: acc => [|[[ca cb] [ya yb]] []] //= _ [] -> [] ->.
+    by rewrite !big_ord0 addn0 addr0 mul0n.
+case: acc => [|[[ca cb] [ya yb]] acc] //=; first by case.
+
+have Hin' : (i < n.+1)%N by rewrite ltnW.
+move/(_ Hin'
+move=> [] size_acc [] cas0 [] cbs0 [] Hyas [] Hybs Hcxs.
 (*
 move/(congr1 rev); rewrite revK => ->.
 move/(congr1 rev); rewrite revK => ->.
@@ -444,16 +487,10 @@ rewrite [RHS](_ : _ = XX); last first.
   reflexivity.
 rewrite /XX {XX}.
 *)
-under [RHS]eq_bigr do rewrite !(tnth_nth 0).
-move: acc cas0 cbs0 size_acc Hyas Hybs.
-case: i.
-elim=> /= [|i Hi] Hin.
-    case => [|[[ca cb] [ya yb]] []] //= -> -> _.
-    by rewrite !big_ord0 addn0 addr0 mul0n.
-    (* end of the base case. *)
+move: acc Hi cas0 cbs0 size_acc Hyas Hybs Hcxs.
 case => [|[[ca cb] [ya yb]] acc] //=.
 rewrite !rev_cons -!cats1.
-move=> ca0 cb0 [Hsz].
+move=> Hi ca0 cb0 [Hsz].
 
 rewrite (take_nth 0); last by rewrite size_tuple.
 rewrite -cats1 /add zip_cat; last first.
@@ -463,26 +500,21 @@ rewrite map_cat /= 2!cats1 => /rcons_inj [] Hyas Hya.
 rewrite (take_nth 0); last by rewrite size_tuple.
 rewrite -cats1 /add zip_cat; last first.
   by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW.
-rewrite map_cat.
-rewrite /=.
-rewrite cats1.
-rewrite cats1.
-move => /rcons_inj. (* apply a lemma to the Top; in the forward direction*)
+rewrite map_cat /= 2!cats1 => /rcons_inj. (* apply a lemma to the Top; in the forward direction*)
 
 
-move => [].
-move => Hybs.
-move => Hyb.
+case => Hybs Hyb Hcxs.
 
 rewrite big_ord_recl /= subSS subn0.
 under eq_bigr do rewrite bump0 subSS.
 rewrite [RHS]big_ord_recr /=.
 rewrite !nth_cat !size_rev !size_map Hsz /= in ca0 cb0.
-rewrite -(Hi (ltnW Hin) acc) // {Hi}.
+rewrite -(Hi (ltnW Hin)) // {Hi}; last first.
+  
 rewrite addnA.
 rewrite [RHS]addnAC.
 congr addn.
-case: acc Hsz Hyas Hybs ca0 cb0 => [|[[ca' cb'] [ya' yb']] acc] //= [Hsz].
+case: acc Hsz Hyas Hybs Hcxs ca0 cb0 => [|[[ca' cb'] [ya' yb']] acc] //= [Hsz].
 (* Re-do what we have done for ya, yb; this time for ya', yb' *)
 
 rewrite !rev_cons.
@@ -496,69 +528,9 @@ rewrite -3!cats1 /add zip_cat; last first.
 rewrite map_cat /= 2!cats1 => /rcons_inj [] Hybs' ->.
 
 
-move=> Hca Hcb.
-rewrite -mulnDl expnS mulnA -mulnDl.
-congr muln. (* new lemma: *)
-
-
-
-(*
-
-  ya' = xas[i] + ca'
-
-  ((ca + cb)%R * 2 ^ i.+1 + (ya' + yb')%R * 2 ^ i)%N =
-  ((ca' + cb')%R * 2 ^ i + ((xas`_i)%R + (xbs`_i)%R) * 2 ^ i)%N
-
-   c  * 2 ^i.+1 + y' * 2^i =
-   c' * 2 ^i    + (xa[i] + xb[i]) * 2^i
-
-*)
-
-Set Printing Coercions.
-
-rewrite Hya.
-rewrite Hya Hyb //=.
-rewrite addrAC addrA addrC.
-Fail rewrite mulrDl.
-(*
-    I tried to make
-
-        (xas`_i.+1 + xbs`_i.+1 + cb + ca)%R * 2 ^ i
-
-    Become:
-
-        (xas`_i.+1 + xbs`_i.+1)%R * 2 ^ i + (cb + ca)%R * 2 ^ i
-*)
-
-case: (cb+ca).
-(*
-   Here it becomes:
-
-       true * 2 ^ i.+1
-
-
--- (automatically)
-
-*)
-rewrite //.
-Search ((_ + _) * _).
-
-
-
-case: (ca+cb).
-under 
-congr (_ + _).
-(*
-rewrite !rev_cons !(take_nth 0).
-rewrite !zip_rcons;
-  try by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW // ltnW.
-rewrite !map_rcons.
-move/rcons_inj => [Hyas Hya'] /rcons_inj [Hybs Hyb'].
-rewrite zip_rcons; last first.
-  by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW // ltnW.
-Search take rcons.
-*)
-Abort.
+move=> Hcxs Hca Hcb.
+by rewrite -mulnDl expnS mulnA -mulnDl Hcxs.
+Qed.
  
 Definition dec_eq (i: 'I_2.+1) (xas' xbs': (2.+1).-tuple B) : nat :=
   \sum_(j < i.+1) (((xas' !_ (Wi j) : nat) + xbs' !_ (Wi j)) * 2 ^ j)%nat.
