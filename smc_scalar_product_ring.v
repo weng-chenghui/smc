@@ -302,8 +302,6 @@ Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   /\ (rev cbs)`_0 = 0
   /\ rev yas = take i.+1 xas `+ rev cas
   /\ rev ybs = take i.+1 xbs `+ rev cbs
-  /\ (carry_correct
-        (cas `_ 0) (cbs `_ 0) (cas `_ 1) (cbs `_ 1) (xas`_i.-1) (xbs`_i.-1))
   /\
   ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i +
    \sum_(j < i)
@@ -396,14 +394,13 @@ Proof.
 by case: s => [| ? []].
 Qed.
 
-
 Lemma zn_to_z2_folder_correct acc i:
   acc_correct acc (W i) -> acc_correct (zn_to_z2_folder acc i) (S i).
 Proof.
 move=> []. 
 case Hacc: acc => [|[[cai_ cbi_] [ya yb]] acc'] //.
 rewrite -Hacc.
-move=> Hsz [Hca [Hcb [Hyas [Hybs [hcxs Hdec]]]]].
+move=> Hsz [Hca [Hcb [Hyas [Hybs Hdec]]]].
 rewrite /zn_to_z2_folder {1}Hacc /=.
 have:=step2_1_correctP (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) (sps_is_sp i).
 rewrite /step2_1_correct /=. 
@@ -440,96 +437,24 @@ under [in RHS]eq_bigr do rewrite !(tnth_nth 0) /=.
 move: Hdec.
 under [in RHS]eq_bigr do rewrite !(tnth_nth 0) /=.
 move <-.
-rewrite addnA.
-rewrite [RHS]addnC addnA.
+rewrite addnA [RHS]addnC addnA.
 congr addn.
 rewrite expnS mulnA -!mulnDl.
 congr muln.
 rewrite !(tnth_nth 0) /= [RHS]addnC -Hcc.
 congr addn.
-rewrite !addrA (addrC _ xbs`_i) addrA -[in LHS](add0r (_ + _)).
-rewrite -addrA.
-congr nat_of_bool.
-f_equal.
-
-Qed.
-
-
-Lemma acc_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :
-  acc_correct acc i -> decimal_eq acc i.
-Proof.
-clear W S.
-rewrite /decimal_eq.
-under [RHS]eq_bigr do rewrite !(tnth_nth 0).
-case: i acc.
-elim=> /= [|i Hi] Hin acc.
-    case.
-    case: acc => [|[[ca cb] [ya yb]] []] //= _ [] -> [] ->.
-    by rewrite !big_ord0 addn0 addr0 mul0n.
-case: acc => [|[[ca cb] [ya yb]] acc] //=; first by case.
-
-have Hin' : (i < n.+1)%N by rewrite ltnW.
-move/(_ Hin'
-move=> [] size_acc [] cas0 [] cbs0 [] Hyas [] Hybs Hcxs.
-(*
-move/(congr1 rev); rewrite revK => ->.
-move/(congr1 rev); rewrite revK => ->.
-*)
-(*
-under [RHS]eq_bigr => j _.
-  rewrite !(tnth_nth 0).
-  over.
-
-evar (XX : nat).
-rewrite [RHS](_ : _ = XX); last first.
-  apply: eq_bigr => j _.
-  rewrite !(tnth_nth 0).
-  reflexivity.
-rewrite /XX {XX}.
-*)
-move: acc Hi cas0 cbs0 size_acc Hyas Hybs Hcxs.
-case => [|[[ca cb] [ya yb]] acc] //=.
-rewrite !rev_cons -!cats1.
-move=> Hi ca0 cb0 [Hsz].
-
-rewrite (take_nth 0); last by rewrite size_tuple.
-rewrite -cats1 /add zip_cat; last first.
-  by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW.
-rewrite map_cat /= 2!cats1 => /rcons_inj [] Hyas Hya.
-
-rewrite (take_nth 0); last by rewrite size_tuple.
-rewrite -cats1 /add zip_cat; last first.
-  by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW.
-rewrite map_cat /= 2!cats1 => /rcons_inj. (* apply a lemma to the Top; in the forward direction*)
-
-
-case => Hybs Hyb Hcxs.
-
-rewrite big_ord_recl /= subSS subn0.
-under eq_bigr do rewrite bump0 subSS.
-rewrite [RHS]big_ord_recr /=.
-rewrite !nth_cat !size_rev !size_map Hsz /= in ca0 cb0.
-rewrite -(Hi (ltnW Hin)) // {Hi}; last first.
-  
-rewrite addnA.
-rewrite [RHS]addnAC.
-congr addn.
-case: acc Hsz Hyas Hybs Hcxs ca0 cb0 => [|[[ca' cb'] [ya' yb']] acc] //= [Hsz].
-(* Re-do what we have done for ya, yb; this time for ya', yb' *)
-
-rewrite !rev_cons.
-rewrite (take_nth 0); last by rewrite ltnW // size_tuple.
-rewrite -3!cats1 /add zip_cat; last first.
-  by rewrite size_rev !size_map Hsz size_takel //= ltnW // size_tuple ltnW //.
-rewrite map_cat /= 2!cats1 => /rcons_inj [] Hyas' ->.
-rewrite (take_nth 0); last by rewrite ltnW // size_tuple.
-rewrite -3!cats1 /add zip_cat; last first.
-  by rewrite size_rev !size_map Hsz size_takel //= ltnW // size_tuple ltnW //.
-rewrite map_cat /= 2!cats1 => /rcons_inj [] Hybs' ->.
-
-
-move=> Hcxs Hca Hcb.
-by rewrite -mulnDl expnS mulnA -mulnDl Hcxs.
+move: Hsz Hyas Hybs; clear.
+case: acc => [| [[ca cb] [ya yb]] acc] //= => [] [] Hsz.
+rewrite !rev_cons -!cats1 -addn1 !takeD.
+rewrite !take1 ?size_drop ?subn_gt0 ?size_tuple 1?ltnW ?ltnS //.
+rewrite -!nth0 !nth_drop addn0.
+rewrite /add zip_cat; last first.
+  by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW //ltnW //ltnS.
+rewrite map_cat /= 2!cats1 => /rcons_inj [] _ ->.
+rewrite zip_cat; last first.
+  by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW //ltnW //ltnS.
+rewrite map_cat /= 2!cats1 => /rcons_inj [] _ ->.
+by rewrite !addrA.
 Qed.
  
 Definition dec_eq (i: 'I_2.+1) (xas' xbs': (2.+1).-tuple B) : nat :=
