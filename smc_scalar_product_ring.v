@@ -202,11 +202,8 @@ Section smc_scalar_product_facts.
 Variable R:comRingType.
 
 Lemma dotproduct_nil_lists  (la lb: list R) :
-        size la = 0%N /\ size lb = 0%N -> dotproduct la lb = 0.
-Proof.
-move=> [Hsza Hszb].
-rewrite /dotproduct.
-Admitted.
+        size la = 0%N -> size lb = 0%N -> dotproduct la lb = 0.
+Proof. by move/size0nil -> => /size0nil ->. Qed.
 
 Lemma dot_productC (aa bb : list R) : aa `* bb = bb `* aa.
 Proof. by rewrite /dotproduct; congr foldl; apply: zipWithC; exact: mulrC. Qed.
