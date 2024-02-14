@@ -79,6 +79,10 @@ move: yy; elim: xx; first by case.
 by move=> x xx IH; case=> //= y yy; rewrite IH.
 Qed.
 
+Lemma size_zipWith {A B: Type} (fn : A -> A -> B) (l1 : list A) (l2 : list A) :
+  size (zipWith fn l1 l2) = minn (size l1) (size l2).
+Proof. by rewrite zipWithE size_map size_zip. Qed.
+
 Lemma big_zipWith_cat
   [R : Type] [idx : R] (op : Monoid.com_law idx) [I : Type] (r1 r2 : seq I) 
   (P Q : pred I) (F : I -> R) :
