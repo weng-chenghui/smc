@@ -58,12 +58,43 @@ Reserved Notation "la '`+' lb" (at level 50, format "'[' la  `+  lb ']'").
 
 Local Open Scope ring_scope.
 
-Fixpoint zipWith {A B: Type} (fn : A -> A -> B) (l1 : list A) (l2 : list A) : list B :=
+Fixpoint zipWith  (A B C: Type) (fn : A -> B -> C) (l1 : list A) (l2 : list B) : list C :=
 	match l1, l2 with
 	| [::], _ => [::]
 	| _, [::] => [::]
 	| a1 :: tl1, a2 :: tl2 => fn a1 a2 :: (zipWith fn tl1 tl2)
 	end.
+
+Lemma length_cons :
+  forall (A : Type) (a : A) (l : list A),
+  length (a :: l) = S (length l).
+Proof.
+move=> A a l.
+rewrite //=.
+Qed.
+
+Lemma zipWith_recl  (A B C: Type) (f : A -> B -> C)  (a : A) (b : B) (l1 : list A) (l2 : list B):
+  zipWith f (a :: l1) (b :: l2) = f a b :: zipWith f l1 l2.
+Proof.
+by rewrite /=.
+Qed.
+
+Lemma zipWith_nil_l  (A B C: Type) (f : A -> B -> C)  (lr : list B):
+  zipWith f [::] lr = [::].
+Proof.
+by rewrite /=.
+Qed.
+
+Lemma zipWith_nil_r (A B C: Type) (f : A -> B -> C)  (ll : list A):
+  zipWith f ll [::] = [::].
+Proof.
+rewrite /=.
+elim: ll => [|??].
+  by [].
+move=>H.
+rewrite -H //=.
+Qed.
+  
 
 Section smc_scalar_product.
 
@@ -131,31 +162,24 @@ End smc_scalar_product.
 Notation "la '`*' lb" := (dotproduct la lb).
 Notation "la '`+' lb" := (add la lb).
 
-(* Some rings cannot be computed. *)
+(* Note that some rings cannot be computed.
+   But this one is okay:
+ *)
 Eval compute in (demo_Alice3_Bob2 [ringType of int]).
-
-(*
-
-1. Prove it again.
-2. zn-to-z2, specialize the SMC scalar-product to modp or bool
-
-bool_comRingType
-*)
 
 Section smc_scalar_product_facts.
 
 (* to prove, need com *)
 Variable R:comRingType.
 
-Lemma dotproduct_nil_lists  (la lb: list R) :
-        size la = 0%N /\ size lb = 0%N -> dotproduct la lb = 0.
-Proof.
-move=> [Hsza Hszb].
-rewrite /dotproduct.
-Admitted.
-
 
 Lemma dot_productC (aa bb : list R) : aa `* bb = bb `* aa.
+Proof.
+rewrite /dotproduct.
+elim: aa => [| a];elim: bb => [| b].
+rewrite -zipWith_nil_l.
+  
+
 Admitted.
 
 Lemma dot_productDr (aa bb cc : list R) : aa `* (bb `+ cc) = aa `* bb + aa `* cc.
@@ -178,14 +202,6 @@ rewrite (dot_productC Xb Ra).
 ring.
 Qed.
 
-
-Lemma scalar_product_nil_lists (sp : SMC R) (Xa Xb : list R):
-  size Xa = 0%N /\ size Xb = 0%N /\ is_scalar_product sp -> sp Xa Xb = (0, 0).
-Proof.
-move=> [Hza [Hzb Hsp]].
-move:Hsp.
-Admitted.
-
 End smc_scalar_product_facts.
 
 Section zn_to_z2.
@@ -204,7 +220,6 @@ Definition step2_1_correct (sp: SMC B) (ci xi: B * B) :=
     let t := step2_1 sp ci xi in
     t.1 + t.2 = alice_input `* bob_input .
 
-(* NOTE: this is not rewritable (yet). *)
 Lemma step2_1_correctP (sp: SMC B) (ci xi: B * B) :
 	is_scalar_product sp ->
         step2_1_correct sp ci xi.
@@ -215,16 +230,6 @@ rewrite /step2_1.
 by rewrite Hsp.
 Qed.
   
-  
-Lemma step2_1_correct' (sp: SMC B) (ci xi: B * B) :
-	is_scalar_product sp ->
-	let alice_input := [:: ci.1; xi.1; xi.1] in
-	let bob_input := [:: xi.2; ci.2; xi.2] in
-	exists tai tbi, (tai, tbi) = step2_1 sp ci xi /\
-	tai + tbi = alice_input `* bob_input .
-Proof.
-Admitted.
-
 (* Step 2 for two party. *)
 Definition step2_2 (ti: B * B) (ci xi xi' : B * B) :
   (B * B) * (B * B) :=
@@ -283,12 +288,6 @@ Definition zn_to_z2 :=
 
 Let Wi {n} {m : 'I_n} : 'I_m -> 'I_n := @widen_ord _ n (ltnW (ltn_ord m)).
 
-(*
- (((ca + cb)%R * 2 + (xas`_i + ca' + (xbs`_i + cb'))%R) * 2 ^ i)%N =
-  (((ca' + cb')%R + ((xas`_i)%R + (xbs`_i)%R)) * 2 ^ i)%N
-
-*)
-
 Definition carry_correct (ca cb ca' cb' xa xb : B) :=
   ((ca + cb)%R * 2 + (xa + ca' + (xb + cb'))%R = (ca' + cb')%R + (xa + xb))%N.
 
@@ -345,21 +344,6 @@ rewrite !nth_default ?addr0 //.
 - by move: zst; rewrite size_zip -st minnn.
 - by rewrite size_map.
 Qed.
-
-Lemma step2_correctP (acc: list ((B * B) * (B * B))) (i: 'I_n) :
-  let i_ := W i in
-  step2_correct acc i.
-Proof.
-move=> i_.
-rewrite /step2_correct.
-rewrite /acc_correct.
-move=> [Hsize [Hca0 [Hcb0 [Hyas Hybs]]]].
-rewrite /step2_1_correct.
-rewrite step2_1_correctP /=.
-case: i i_ Hsize Hyas Hybs.
-move=> Hi Hin Hi_ Hacc Hyas Hybs //.
-have:=size_tuple sps => Hsize_sps.
-Abort.
 
 Lemma add_cat (s1 s2 t1 t2 : seq B) :
   size s1 = size t1 ->
@@ -434,232 +418,6 @@ rewrite zip_cat; last first.
 rewrite map_cat /= 2!cats1 => /rcons_inj [] _ ->.
 by rewrite !addrA.
 Qed.
-
-
-
-Definition dec_eq (i: 'I_2.+1) (xas' xbs': (2.+1).-tuple B) : nat :=
-  \sum_(j < i.+1) (((xas' !_ (Wi j) : nat) + xbs' !_ (Wi j)) * 2 ^ j)%nat.
-
-Eval compute in
-  (dec_eq (inord 1) [tuple true; true; true] [tuple true; false; false]).
-
-
-
-Lemma add_cat (s1 s2 t1 t2 : seq B) :
-  size s1 = size t1 ->
-  add (s1 ++ s2) (t1 ++ t2) = add s1 t1 ++ add s2 t2.
-Proof. by move=> Hsize; rewrite /add zip_cat // map_cat. Qed.
-
-Lemma zn_to_z2_folder_correct acc i:
-	is_scalar_product (sps !_ i) -> acc_correct acc (W i) -> acc_correct (zn_to_z2_folder acc i) (S i).
-Proof.
-move=> spi_is_scalar_product [].
-case Hacc: acc => [|[[cai_ cbi_] [ya yb]] acc'] //.
-rewrite -Hacc.
-move=> Hsz [Hya Hyb].
-rewrite /zn_to_z2_folder {1}Hacc /=.
-have:=step2_1_correct (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) spi_is_scalar_product.
-destruct step2_1 as [tai_ tbi_].
-have:=step2_2_correct (tai_, tbi_) (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) (xas !_ (S i), xbs !_ (S i)).
-simpl.
-move=> _ Htai_tbi.
-have Hbump : bump 0 i = (W i).+1 by [].
-rewrite /acc_correct /= Hsz.
-split => //.
-rewrite Hbump.
-rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
-rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
-rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
-rewrite !(add_cat,rev_cat) //;
-  try by rewrite size_takel !(size_tuple,size_rev,size_map) // ltnS ltnW.
-by rewrite Hya Hyb !(tnth_nth 0).
-Qed.
-
-
-Lemma zn_to_z2_folder_correct' acc i:
-	is_scalar_product (sps !_ i) -> acc_correct' acc (W i) -> acc_correct' (zn_to_z2_folder acc i) (S i).
-Proof.
-move=> spi_is_scalar_product [].
-case Hacc: acc => [|[[cai_ cbi_] [ya yb]] acc'] //.
-rewrite -Hacc.
-move=> Hsz [Hya [Hyb Hdecimal_eq]].
-rewrite /zn_to_z2_folder {1}Hacc /=.
-have:=step2_1_correct (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) spi_is_scalar_product.
-destruct step2_1 as [tai_ tbi_].
-have:=step2_2_correct (tai_, tbi_) (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) (xas !_ (S i), xbs !_ (S i)).
-simpl.
-move=> _ Htai_tbi.
-have Hbump : bump 0 i = (W i).+1 by [].
-rewrite /acc_correct' /= Hsz.
-split => //.
-rewrite {1 2 3}Hbump. (* only use Hbump in occurence #1, #2 and #3. *)
-rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
-rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
-rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
-rewrite !(add_cat,rev_cat) //;
-  try by rewrite size_takel !(size_tuple,size_rev,size_map) // ltnS ltnW.
-rewrite Hya Hyb !(tnth_nth 0).
-split => //.
-split => //.
-
-rewrite big_ord_recl /=.
-rewrite [RHS] big_ord_recr /=.
-rewrite /= in Hdecimal_eq.
-set sum1 := (X in _ = (X + _)%N).
-set sum1' := (X in _ = X) in Hdecimal_eq.
-have H1 : sum1 = sum1'.
-  rewrite /sum1 /sum1'.
-  apply: eq_bigr.
-  move=>j _.
-  congr ((_ + _) * _)%N ; congr (nat_of_bool (_ !_ _)); exact: val_inj.  (* congr: make pattern more simple when there is an eq; `;` do things in parallel.*)
-  (*Set Printing  Coercions*)
-  (*
-		val_inj for "value injection"
-		A ; B. means "execute A and for all subgoals apply B"
-		A. B. means "execute A and for the first subgoal in line execute B" 
-  *)
-rewrite H1.
-set sum2 := (\sum_(j<_) _)%N.
-set sum2' := (\sum_(j<_) _)%N in Hdecimal_eq.
-have H2 : sum2 = sum2'.
-  rewrite /sum2 /sum2'.
-  apply: eq_bigr.
-  move=> i0 _.
-  by congr (_ * _)%N.
-rewrite H2.
-rewrite -Hdecimal_eq.
-rewrite [in RHS] addnAC.
-rewrite !addnA.
-congr (_ + _)%N.
-rewrite subn0.
-rewrite Hacc /=.
-destruct n as [|n'] => /=.
-  destruct i as [i Hi] => /=.
-  destruct i as [|i] => //=.
-destruct i as [i Hi] => /=.
-destruct i as [|i] => /=.
-  destruct n' => /=.
-  rewrite (_:xas `_(bump 0 0) = xas `_1%N) //.
-  rewrite (_:xbs `_(bump 0 0) = xbs `_1%N) //.
-  rewrite (_:(2 ^ bump 0 0 = 2)%N) //.
-  rewrite (_:xas !_ (Wi ord_max) = xas `_1%N);last first.
-    by rewrite (tnth_nth 0) //.
-  rewrite (_:xbs !_ (Wi ord_max) = xbs `_1%N);last first.
-    by rewrite (tnth_nth 0) //.
-	rewrite (_:xas `_0 = true);last admit.
-	rewrite (_:xbs `_0 = true);last admit.
-	rewrite (_:xas `_1 = true);last admit.
-	rewrite (_:xbs `_1 = true);last admit.
-	rewrite (_:cai_ = true);last admit.
-	rewrite (_:cbi_ = true);last admit.
-	rewrite (_:tai_ = true);last admit.
-	rewrite (_:tbi_ = true);last admit.
-	simpl.
-	rewrite !mul0n.
-  
-
-
-  rewrite (_:xas `_1%N = false);last first.
-    rewrite nth_default //.
-	rewrite size_tuple //.
-
-  rewrite (_:Wi ord_max = ord0%N) // ; last first.
-  apply val_inj => /=.
-  rewrite /bump /=.
-
-  done.
-
-destruct i as [i Hi] => /=.
-destruct i as [|i] => /=.
-(**
-congr (_ * _)%N.
-*)
- (**rewrite subn0*) 
-(**rewrite subn0 and then congr (_ * _)%N*)
-
-(**
-set sum1 := (X in _ = X + _).
-set sum1' := (X in _ = X) in Hdecimal_eq.
-have H1 : sum1 = sum1'.
-*)
-
-rewrite 
-Qed.
-
-(*
-rewrite [in X in X /\ _]Hbump. 
-rewrite Hbump.
-*)
-Abort.
-(*
-rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
-rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
-rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
-rewrite !(add_cat,rev_cat) //;
-  try by rewrite size_takel !(size_tuple,size_rev,size_map) // ltnS ltnW.
-by rewrite Hya Hyb !(tnth_nth 0).
-Qed.
-*)
-
-(*
-Memo: use pose instead of let in proof.
-
-pose xai_ := xas !_ i_.
-pose xbi_ := xbs !_ i_.
-pose xai' := xas !_ i'.
-pose xbi' := xbs !_ i'.
-
-*)
-
-(* WRONG: leave acc' in the stack but not `case: acc'=>[[ca' cb'] ys']` to let it in the proof-context
-   Result: when the stack needs ca' cb' and ys', the proof-context has no these symbols.
-
-   Therefore: `case: acc'=>[[ca' cb'] ys']` to get those symbols.
-*)
-
-(* WRONG: not fulfill the `step2_1_correct` with all its parameters.
-   Because: from the signature, it is: `step2_1_correct (SMC B) (B*B) (B*B)`.
-            However, for some uknown reasons, the correct `is_scalar_product (SMC B)` premise need to be fed at the last parameter,
-			otherwise Coq says the first parameter is NOT scalar product:
-
-			    have:=step2_1_correct spi_is_scalar_product (ca, cb) (tnth xas i_, tnth xbs i_).
-
-			The term "spi_is_scalar_product" has type "is_scalar_product (tnth sps i)"
-		    while it is expected to have type "(B * B)%type".
-
-	Instead: the premise need to be fed at the last parameter to this Lemma: 
-
-				have:=step2_1_correct (ca, cb) (tnth xas i_, tnth xbs i_) spi_is_scalar_product.
-
-	It seems that if a premise is no just a parameter, like `is_scalar_product (SMC B) -> ...` not `SMC B`,
-	it needs to be fed at the end.
-
-Proof.
-case: acc=>[[ca cb] ys].
-move=> i_ i'.
-rewrite /zn_to_z2_folder.
-move=> spi_is_scalar_product acc_correct.
-have:=step2_1_correct (ca, cb) (tnth xas i_, tnth xbs i_).
-Abort.
-
-*)
-
-(* WRONG: destruct because we see the first let from zn_to_z2_folder above
-   Because: if we just destruct the result of zn_to_z2_folder here,
-            they just go to the proof context and no underlying SMC steps will be shown,
-			so we cannot use lemma we created before to prove their correctness, like
-			`step2_1_correct`.
-   Instead: we `rewrite /zn_to_z2_folder` to unfold the underlying steps.
-
-Proof.
-case: acc=>[[ca cb] ys].
-destruct zn_to_z2_folder as [p ys'].
-Abort.
-
-*)
-
-(* destruct because we see `let '(ca', cb') in p` *)
-Abort.
 
 End zn_to_z2_ntuple.
 
