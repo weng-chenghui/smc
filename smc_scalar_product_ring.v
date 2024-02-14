@@ -25,6 +25,13 @@ Lemma take_zip (S T : Type) (s : seq S) (t : seq T) n :
   take n (zip s t) = zip (take n s) (take n t).
 Proof. by elim: n s t => [|n IH] [|s1 s] [|t1 t] //=; rewrite IH. Qed.
 
+Lemma zip_take_min (S T : Type) (ss : seq S) (tt : seq T) :
+  zip ss tt = take (minn (size ss) (size tt)) (zip ss tt).
+Proof.
+elim: ss tt; first by case.
+by move=> s ss IH; case=> //= t tt; rewrite minnSS /= -IH.
+Qed.
+
 Lemma nth_zip' (S T : Type) (x : S) (y : T) s t i :
   i < minn (size s) (size t) ->
   nth (x, y) (zip s t) i = (nth x s i, nth y t i).
@@ -65,13 +72,56 @@ Fixpoint zipWith {A B: Type} (fn : A -> A -> B) (l1 : list A) (l2 : list A) : li
 	| a1 :: tl1, a2 :: tl2 => fn a1 a2 :: (zipWith fn tl1 tl2)
 	end.
 
+Lemma zipWithE (A B : Type) (f : A -> A -> B) (xx yy : list A) :
+  zipWith f xx yy = [seq f xy.1 xy.2 | xy <- zip xx yy].
+Proof.
+move: yy; elim: xx; first by case.
+by move=> x xx IH; case=> //= y yy; rewrite IH.
+Qed.
+
+Lemma big_zipWith_cat
+  [R : Type] [idx : R] (op : Monoid.com_law idx) [I : Type] (r1 r2 : seq I) 
+  (P Q : pred I) (F : I -> R) :
+  size [seq i <- r1 | P i] = size [seq i <- r2 | Q i] ->
+  \big[op/idx]_(i <- zipWith op [seq F i | i <- r1 & P i] [seq F i | i <- r2 & Q i]) i =
+    op (\big[op/idx]_(i <- r1 | P i) F i) (\big[op/idx]_(i <- r2 | Q i) F i).
+Proof.
+move=> H.
+rewrite zipWithE big_map big_split.
+rewrite -(big_map fst xpredT idfun) /= -/(unzip1 _) unzip1_zip ?size_map ?H //.
+rewrite -(big_map snd xpredT idfun) /= -/(unzip2 _) unzip2_zip ?size_map ?H //.
+by rewrite !big_map !big_filter.
+Qed.
+
+Arguments big_zipWith_cat [R idx] op [I] r1 r2 P Q F.
+
+Lemma big_zipWith_cat'
+  [R : Type] [idx : R] (op : Monoid.com_law idx) (r1 r2 : seq R) :
+  size r1 = size r2 ->
+  \big[op/idx]_(i <- zipWith op r1 r2) i =
+    op (\big[op/idx]_(i <- r1) i) (\big[op/idx]_(i <- r2) i).
+Proof.
+have:= (big_zipWith_cat op r1 r2 xpredT xpredT idfun).
+by rewrite /= !filter_predT !map_id; exact.
+Qed.
+
+Arguments big_zipWith_cat' [R idx] op r1 r2.
+
+Lemma zipWithC (A B : Type) (f : A -> A -> B) (aa bb : seq A) :
+  (forall a b, f a b = f b a) ->
+  zipWith f aa bb = zipWith f bb aa.
+Proof.  
+move: bb; elim: aa=> //=; first by case.
+by move=> a aa IH; case=> //= b bb H; rewrite H (IH _ H).
+Qed.
+Arguments zipWithC [A B] f.
+
 Section smc_scalar_product.
 
 Variable Z:ringType.
 
 Definition dotproduct (la lb: list Z) : Z :=
 	foldl (fun sum current => sum + current) 0 (zipWith (fun a b => a * b) la lb).
-
 
 Definition add (la lb: list Z) : list Z :=
 	map (fun a => a.1 + a.2) (zip la lb).
@@ -154,11 +204,19 @@ move=> [Hsza Hszb].
 rewrite /dotproduct.
 Admitted.
 
-
 Lemma dot_productC (aa bb : list R) : aa `* bb = bb `* aa.
-Admitted.
+Proof. by rewrite /dotproduct; congr foldl; apply: zipWithC; exact: mulrC. Qed.
 
 Lemma dot_productDr (aa bb cc : list R) : aa `* (bb `+ cc) = aa `* bb + aa `* cc.
+Proof.
+rewrite /add /dotproduct.
+rewrite !zipWithE !foldl_idx /=.
+rewrite -big_cat -map_cat /= !big_map.
+rewrite zip_take_min !take_zip.
+rewrite -!zipWithE.
+
+rewrite (zip_take_min aa bb) (zip_take_min aa cc) !take_zip -zip_cat /=;
+  last by rewrite !size_take_min minnAC minnn -minnA minnn.
 Admitted.
 
 Lemma scalar_product_correct (Ra Rb : list R) (ra yb : R) :
