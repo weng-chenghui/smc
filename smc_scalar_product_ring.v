@@ -94,6 +94,12 @@ elim: ll => [|??].
 move=>H.
 rewrite -H //=.
 Qed.
+
+Lemma zipWith_nil (A B C: Type) (f : A -> B -> C):
+  zipWith f [::] [::] = [::].
+Proof.
+by rewrite /=.
+Qed.
   
 
 Section smc_scalar_product.
@@ -101,11 +107,27 @@ Section smc_scalar_product.
 Variable Z:ringType.
 
 Definition dotproduct (la lb: list Z) : Z :=
-	foldl (fun sum current => sum + current) 0 (zipWith (fun a b => a * b) la lb).
+	foldl +%R 0 (zipWith *%R la lb).
 
 
-Definition add (la lb: list Z) : list Z :=
-	map (fun a => a.1 + a.2) (zip la lb).
+(*
+
+  The previous version `add`:
+
+    map (fun a => a.1 + a.2) (zip la lb).
+
+  Need extra hypothesis for their length,
+  and thus all related proofs need those hypothesis.
+
+  Therefore, we use this fixpoint version to save the extra work.
+*)
+
+Fixpoint add (la lb: list Z) : list Z :=
+    match la, lb with
+    |[::], _ => lb
+    |_, [::] => la
+    |a::la, b::lb => a+b :: add la lb
+    end.
 
 Notation "la '`*' lb" := (dotproduct la lb).
 Notation "la '`+' lb" := (add la lb).
@@ -173,17 +195,43 @@ Section smc_scalar_product_facts.
 Variable R:comRingType.
 
 
+(*
+TODO: Lemma for:
+foldl (fun sum : R => [eta +%R sum]) 0 [::] = foldl (fun sum : R => [eta +%R sum]) 0 [::]
+
+BigOp instead of foldling.
+*)
+
+
 Lemma dot_productC (aa bb : list R) : aa `* bb = bb `* aa.
 Proof.
 rewrite /dotproduct.
-elim: aa => [| a];elim: bb => [| b].
-rewrite -zipWith_nil_l.
-  
+elim: aa bb 0 => [| a aa IH] [| b bb] z //=.
+by rewrite mulrC.
+Qed.
 
-Admitted.
+Lemma dot_productE (aa bb: list R) (z: R): z + aa `* bb = foldl +%R z (zipWith *%R aa bb).
+Proof.
+rewrite /dotproduct -[in RHS](addr0 z).
+elim: aa bb z 0=> [| a aa IH] [| b bb] z z2 //=.
+by rewrite IH addrA.
+Qed.  
 
-Lemma dot_productDr (aa bb cc : list R) : aa `* (bb `+ cc) = aa `* bb + aa `* cc.
-Admitted.
+Lemma dot_productDr (aa bb cc : list R) :
+  aa `* (bb `+ cc) = aa `* bb + aa `* cc.
+Proof.
+rewrite /dotproduct.
+set z:={1 2}0.
+rewrite -{1}(addr0 z).
+elim: aa bb cc z 0=> [| a aa IH] [| b bb] [|c cc] z z2 //=.
+rewrite -!dot_productE //=.
+ring.
+rewrite -!dot_productE //=.
+ring.
+rewrite IH //.
+rewrite -!dot_productE //=.
+ring.
+Qed.
 
 Lemma scalar_product_correct (Ra Rb : list R) (ra yb : R) :
   let rb := scalar_product_commidity_rb Ra Rb ra in
@@ -285,6 +333,40 @@ Definition zn_to_z2_folder (acc: list ((B * B) * (B * B))) (i: 'I_n):
 Definition zn_to_z2 :=
 	let init := [:: ((0, 0), (tnth xas 0, tnth xbs 0))] in  (* For party A,B: c0=0, y0=x0 *)
 	foldl zn_to_z2_folder init (ord_tuple n). 
+
+(*acc_correct acc (W i) -> acc_correct (zn_to_z2_folder acc i) (S i).*)
+Lemma foldl_ord_tuple (A: Type) (f: A -> 'I_n -> A) (P: A -> 'I_n.+1 -> Prop) (init: A) :
+  (forall acc i, P acc (W i) -> P (f acc i) (S i))->
+  P init ord0 -> P (foldl f init (ord_tuple n)) ord_max.
+Proof.
+move=>H.
+pose i:=n.
+have Hi:(i <= n)%N. done.
+have Hn:(n-i<n.+1)%N. rewrite subnn. done.
+have ->: ord0 = Ordinal Hn.
+apply /val_inj.
+by rewrite /= subnn.
+have ->: ord_tuple n = drop (n-i) (ord_tuple n) :> list _.
+by rewrite /= subnn drop0.
+elim: i Hi Hn init => [|i IH] Hi Hn init Hinit.
+rewrite /=.
+rewrite subn0 drop_oversize //=.
+have ->//: ord_max = Ordinal Hn.
+apply /val_inj.
+by rewrite /= subn0.
+by rewrite size_enum_ord.
+have Hi': (n - i.+1 < n)%N. admit.
+move /(_ init (Ordinal Hi')) in H.
+rewrite (_:W (Ordinal Hi') = (Ordinal Hn)) in H;last by apply /val_inj.
+have Hn': (n - i < n.+1)%N. admit.
+rewrite (_: S (Ordinal Hi') = Ordinal Hn') in H;last first.
+apply /val_inj.
+rewrite /= bump0.
+by rewrite subnS prednK // subn_gt0.
+move:(IH (ltnW Hi) _ _ (H Hinit)).
+have ->: drop (n - i.+1) (ord_tuple n) = Ordinal Hi' :: drop (n - i) (ord_tuple n).admit.
+apply. 
+
 
 Let Wi {n} {m : 'I_n} : 'I_m -> 'I_n := @widen_ord _ n (ltnW (ltn_ord m)).
 
