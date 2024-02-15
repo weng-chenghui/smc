@@ -223,14 +223,8 @@ Proof.
 rewrite /dotproduct.
 set z:={1 2}0.
 rewrite -{1}(addr0 z).
-elim: aa bb cc z 0=> [| a aa IH] [| b bb] [|c cc] z z2 //=.
-rewrite -!dot_productE //=.
-ring.
-rewrite -!dot_productE //=.
-ring.
-rewrite IH //.
-rewrite -!dot_productE //=.
-ring.
+elim: aa bb cc z 0 => [| a aa IH] [| b bb] [|c cc] z z2 //=;
+  rewrite ?IH -!dot_productE //=; ring.
 Qed.
 
 Lemma scalar_product_correct (Ra Rb : list R) (ra yb : R) :
@@ -254,7 +248,7 @@ End smc_scalar_product_facts.
 
 Section zn_to_z2.
 
-Let B := bool_comRingType.
+Let B := bool.
 
 (* vectors of B *)
 
@@ -293,13 +287,7 @@ Definition step2_2_correct (ti: B * B) (ci xi xi' : B * B) :=
 
 Lemma step2_2_correctP (ti: B * B) (ci xi xi' : B * B):
     step2_2_correct ti ci xi xi'.
-Proof.
-rewrite /step2_2_correct.
-simpl.
-split.
-ring.
-ring.
-Qed.
+Proof. rewrite /step2_2_correct /=; split; ring. Qed.
 
 Section zn_to_z2_ntuple.
 
@@ -355,18 +343,23 @@ have ->//: ord_max = Ordinal Hn.
 apply /val_inj.
 by rewrite /= subn0.
 by rewrite size_enum_ord.
-have Hi': (n - i.+1 < n)%N. admit.
+have Hi': (n - i.+1 < n)%N by rewrite (_ : i = Ordinal Hi) // rev_ord_proof.
 move /(_ init (Ordinal Hi')) in H.
 rewrite (_:W (Ordinal Hi') = (Ordinal Hn)) in H;last by apply /val_inj.
-have Hn': (n - i < n.+1)%N. admit.
+have Hn': (n - i < n.+1)%N by rewrite ltnS leq_subr.
 rewrite (_: S (Ordinal Hi') = Ordinal Hn') in H;last first.
 apply /val_inj.
 rewrite /= bump0.
 by rewrite subnS prednK // subn_gt0.
 move:(IH (ltnW Hi) _ _ (H Hinit)).
-have ->: drop (n - i.+1) (ord_tuple n) = Ordinal Hi' :: drop (n - i) (ord_tuple n).admit.
-apply. 
-
+suff: drop (n - i.+1) (ord_tuple n) = Ordinal Hi' :: drop (n - i) (ord_tuple n).
+  by move ->.
+rewrite -{1}(cat_take_drop (n-i.+1) (ord_tuple n)).
+rewrite drop_size_cat; last by rewrite size_takel // size_tuple leq_subr.
+rewrite (drop_nth (Ordinal Hi')) ?size_tuple //.
+rewrite {3}subnS prednK ?subn_gt0 //.
+by rewrite {2}(_ : (n-i.+1)%N = Ordinal Hi') // -tnth_nth tnth_ord_tuple.
+Qed.
 
 Let Wi {n} {m : 'I_n} : 'I_m -> 'I_n := @widen_ord _ n (ltnW (ltn_ord m)).
 
@@ -403,10 +396,20 @@ Definition step2_correct (acc: list ((B * B) * (B * B))) (i: 'I_n) :=
   let xb := (xbs `_ i_) in
   acc_correct acc i_ -> @step2_1_correct sp (ca, cb) (xa, xb).
 
+Lemma add_cat (R : ringType) (s1 s2 t1 t2 : seq R) :
+  size s1 = size t1 ->
+  add (s1 ++ s2) (t1 ++ t2) = add s1 t1 ++ add s2 t2.
+Proof. elim: s1 t1 => [|a aa IH] [|b bb] //= [Hs]. by rewrite IH. Qed.
+
 Lemma rev_add (R : ringType) (s t : seq R) :
   size s = size t -> rev (s `+ t) = rev s `+ rev t.
-Proof. by move=> ?; rewrite /add -map_rev rev_zip. Qed.
+Proof.
+rewrite -(revK s) -(revK t) !(size_rev (rev _)).
+elim: (rev s) (rev t) => [|a aa IH] [|b bb] //= [Hs].
+by rewrite !rev_cons -!cats1 add_cat ?size_rev //= !cats1 !rev_rcons IH.
+Qed.
 
+(*
 Lemma nth_add' (R : ringType) (s t : seq R) (i : nat) :
   (i < minn (size s) (size t))%N -> (s `+ t) `_ i = s `_ i + t `_ i.
 Proof.
@@ -426,11 +429,7 @@ rewrite !nth_default ?addr0 //.
 - by move: zst; rewrite size_zip -st minnn.
 - by rewrite size_map.
 Qed.
-
-Lemma add_cat (s1 s2 t1 t2 : seq B) :
-  size s1 = size t1 ->
-  add (s1 ++ s2) (t1 ++ t2) = add s1 t1 ++ add s2 t2.
-Proof. by move=> Hsize; rewrite /add zip_cat // map_cat. Qed.
+*)
 
 Lemma take1 (s: seq B):
   (size s > 0)%N -> take 1 s = [::head 0 s].
@@ -492,13 +491,8 @@ case: acc => [| [[ca cb] [ya yb]] acc] //= => [] [] Hsz.
 rewrite !rev_cons -!cats1 -addn1 !takeD.
 rewrite !take1 ?size_drop ?subn_gt0 ?size_tuple 1?ltnW ?ltnS //.
 rewrite -!nth0 !nth_drop addn0.
-rewrite /add zip_cat; last first.
-  by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW //ltnW //ltnS.
-rewrite map_cat /= 2!cats1 => /rcons_inj [] _ ->.
-rewrite zip_cat; last first.
-  by rewrite size_rev !size_map Hsz size_takel // size_tuple ltnW //ltnW //ltnS.
-rewrite map_cat /= 2!cats1 => /rcons_inj [] _ ->.
-by rewrite !addrA.
+rewrite !add_cat /= ?(size_takel,size_tuple,size_rev,size_map,leqW) //= 1?ltnW //.
+by rewrite !cats1 => /rcons_inj [_ ->] /rcons_inj [_ ->].
 Qed.
 
 End zn_to_z2_ntuple.
