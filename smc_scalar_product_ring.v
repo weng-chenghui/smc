@@ -334,6 +334,29 @@ Definition zn_to_z2 :=
 	let init := [:: ((0, 0), (tnth xas 0, tnth xbs 0))] in  (* For party A,B: c0=0, y0=x0 *)
 	foldl zn_to_z2_folder init (ord_tuple n). 
 
+(*
+Lemma ord_subnn (m0 m1 : nat) (o : 'I_(m0-m1).+1) :
+  m0 = m1 -> o = ord0 :> 'I_(m0-m1).+1.
+Proof. by move: o=> /[swap] ->; rewrite subnn => o; rewrite ord1. Qed.
+Arguments ord_subnn : clear implicits.
+*)
+
+(*
+usual recursion: use f(n-1) to compute f(n)
+inverted recursion: use f(n) to compute f(n-1)
+
+inverted recursion could be formalized for any ordinal o : 'I_n
+
+pose i:=n.
+have Hi:(i <= n)%N by [].
+have Hn:(n-i<n.+1)%N by rewrite subnn.
+have ->: ord0 = Ordinal Hn.
+  apply /val_inj.
+  by rewrite /= subnn.
+
+This is the preparatory part of the inverted recursion.
+ *)
+
 (*acc_correct acc (W i) -> acc_correct (zn_to_z2_folder acc i) (S i).*)
 Lemma foldl_ord_tuple (A: Type) (f: A -> 'I_n -> A) (P: A -> 'I_n.+1 -> Prop) (init: A) :
   (forall acc i, P acc (W i) -> P (f acc i) (S i))->
@@ -341,28 +364,28 @@ Lemma foldl_ord_tuple (A: Type) (f: A -> 'I_n -> A) (P: A -> 'I_n.+1 -> Prop) (i
 Proof.
 move=>H.
 pose i:=n.
-have Hi:(i <= n)%N. done.
-have Hn:(n-i<n.+1)%N. rewrite subnn. done.
+have Hi:(i <= n)%N by [].
+have Hn:(n-i<n.+1)%N by rewrite subnn.
 have ->: ord0 = Ordinal Hn.
-apply /val_inj.
-by rewrite /= subnn.
+  apply /val_inj.
+  by rewrite /= subnn.
 have ->: ord_tuple n = drop (n-i) (ord_tuple n) :> list _.
-by rewrite /= subnn drop0.
+  by rewrite /= subnn drop0.
 elim: i Hi Hn init => [|i IH] Hi Hn init Hinit.
-rewrite /=.
-rewrite subn0 drop_oversize //=.
-have ->//: ord_max = Ordinal Hn.
-apply /val_inj.
-by rewrite /= subn0.
-by rewrite size_enum_ord.
+  rewrite /=.
+  rewrite subn0 drop_oversize //=.
+    have ->//: ord_max = Ordinal Hn.
+    apply /val_inj.
+    by rewrite /= subn0.
+  by rewrite size_enum_ord.
 have Hi': (n - i.+1 < n)%N by rewrite (_ : i = Ordinal Hi) // rev_ord_proof.
 move /(_ init (Ordinal Hi')) in H.
 rewrite (_:W (Ordinal Hi') = (Ordinal Hn)) in H;last by apply /val_inj.
 have Hn': (n - i < n.+1)%N by rewrite ltnS leq_subr.
 rewrite (_: S (Ordinal Hi') = Ordinal Hn') in H;last first.
-apply /val_inj.
-rewrite /= bump0.
-by rewrite subnS prednK // subn_gt0.
+  apply /val_inj.
+  rewrite /= bump0.
+  by rewrite subnS prednK // subn_gt0.
 move:(IH (ltnW Hi) _ _ (H Hinit)).
 suff: drop (n - i.+1) (ord_tuple n) = Ordinal Hi' :: drop (n - i) (ord_tuple n).
   by move ->.
