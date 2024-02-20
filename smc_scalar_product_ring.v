@@ -334,6 +334,25 @@ Definition zn_to_z2 :=
 	let init := [:: ((0, 0), (tnth xas 0, tnth xbs 0))] in  (* For party A,B: c0=0, y0=x0 *)
 	foldl zn_to_z2_folder init (ord_tuple n). 
 
+
+(*
+Variables i : nat.
+
+Eval unfold is_true in is_true (n-i<n.+1)%N.
+
+``` have Hn:(n-i<n.+1)%N by rewrite subnn. ``
+(n-i<n.+1)%N is an element of bool.
+Hn is an element of type (n-i<n.+1)%N, more precisely, of type (is_true (n-i<n.+1)%N).
+
+``` Let Hn := (n-i<n.+1)%N ```
+Hn is (n-i<n.+1)%N
+
+Lemma ord0_Ordn (i: nat) (Hn : (n-i<n.+1)%N) :
+  ord0 = Ordinal Hn.
+Proof.
+Abort.
+*)
+
 (*
 Lemma ord_subnn (m0 m1 : nat) (o : 'I_(m0-m1).+1) :
   m0 = m1 -> o = ord0 :> 'I_(m0-m1).+1.
