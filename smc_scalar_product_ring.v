@@ -260,7 +260,7 @@ End smc_scalar_product_facts.
 
 Section zn_to_z2.
 
-Let B := bool.
+Let B := bool_comRingType.
 
 (* vectors of B *)
 
@@ -377,35 +377,28 @@ This is the preparatory part of the inverted recursion.
  *)
 
 (*acc_correct acc (W i) -> acc_correct (zn_to_z2_folder acc i) (S i).*)
-Lemma foldl_ord_tuple (A: Type) (f: A -> 'I_n -> A) (P: A -> 'I_n.+1 -> Prop) (init: A) :
-  (forall acc i, P acc (W i) -> P (f acc i) (S i))->
-  P init ord0 -> P (foldl f init (ord_tuple n)) ord_max.
+(*We expect the nat in P has the same range of `'I_n.+1`*)
+Lemma foldl_ord_tuple (A: Type) (f: A -> 'I_n -> A) (P: A -> nat -> Prop) (init: A) :
+  (forall acc (i:'I_n), P acc i -> P (f acc i) i.+1 )->
+  P init 0%N -> P (foldl f init (ord_tuple n)) n.
 Proof.
 move=>H.
 pose i:=n.
 have Hi:(i <= n)%N by [].
-have Hn:(n-i<n.+1)%N by rewrite subnn.
-have ->: ord0 = Ordinal Hn.
-  apply /val_inj.
-  by rewrite /= subnn.
+have ->: (0 = n - i)%N by rewrite subnn.
 have ->: ord_tuple n = drop (n-i) (ord_tuple n) :> list _.
   by rewrite /= subnn drop0.
-elim: i Hi Hn init => [|i IH] Hi Hn init Hinit.
+elim: i Hi init => [|i IH] Hi init Hinit.
   rewrite /=.
   rewrite subn0 drop_oversize //=.
-    have ->//: ord_max = Ordinal Hn.
-    apply /val_inj.
-    by rewrite /= subn0.
+    by rewrite subn0 in Hinit.
   by rewrite size_enum_ord.
 have Hi': (n - i.+1 < n)%N by rewrite (_ : i = Ordinal Hi) // rev_ord_proof.
 move /(_ init (Ordinal Hi')) in H.
-rewrite (_:W (Ordinal Hi') = (Ordinal Hn)) in H;last by apply /val_inj.
 have Hn': (n - i < n.+1)%N by rewrite ltnS leq_subr.
-rewrite (_: S (Ordinal Hi') = Ordinal Hn') in H;last first.
-  apply /val_inj.
-  rewrite /= bump0.
-  by rewrite subnS prednK // subn_gt0.
-move:(IH (ltnW Hi) _ _ (H Hinit)).
+rewrite (_: (Ordinal Hi').+1 = n - i)%N in H;last first.
+  by rewrite /= subnS prednK // subn_gt0.
+move:(IH (ltnW Hi) _ (H Hinit)).
 suff: drop (n - i.+1) (ord_tuple n) = Ordinal Hi' :: drop (n - i) (ord_tuple n).
   by move ->.
 rewrite -{1}(cat_take_drop (n-i.+1) (ord_tuple n)).
@@ -420,12 +413,16 @@ Let Wi {n} {m : 'I_n} : 'I_m -> 'I_n := @widen_ord _ n (ltnW (ltn_ord m)).
 Definition carry_correct (ca cb ca' cb' xa xb : B) :=
   ((ca + cb)%R * 2 + (xa + ca' + (xb + cb'))%R = (ca' + cb')%R + (xa + xb))%N.
 
-Definition decimal_eq (cas cbs yas ybs : list B) (i: 'I_n.+1) := 
+(* Here we expect `i < n+1` *)
+(* Note if the plus is not the correct one, add nat_of_bool function call for %R parts.*)
+(* By Print decimal_eq (Set Printing All)*)
+Definition decimal_eq (cas cbs yas ybs : list B) (i: nat) :=
   ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i +
-   \sum_(j < i) (yas `_ j.+1 + ybs `_ j.+1)%R * 2 ^ (i-j.+1) =
-     \sum_(j < i) ((xas !_ (Wi j) : nat) + xbs !_ (Wi j)) * 2 ^ j)%N.
+   \sum_(j < i) (yas `_ j.+1 + ybs `_ j.+1)%R * 2 ^ (i-j.+1) == (* `=` means a Prop; `==` means a bool *)
+     \sum_(j < i) ((xas `_ j)%R + (xbs `_ j)%R) * 2 ^ j)%N.
 
-Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
+(* Here we expect `i < n+1` *)
+Definition acc_correct (acc: list ((B * B) * (B * B))) (i: nat) :=
   let cas := unzip1 (unzip1 acc) in
   let cbs := unzip2 (unzip1 acc) in
   let yas := unzip1 (unzip2 acc) in
@@ -437,6 +434,7 @@ Definition acc_correct (acc: list ((B * B) * (B * B))) (i: 'I_n.+1) :=
   /\ rev ybs = take i.+1 xbs `+ rev cbs
   /\ decimal_eq cas cbs yas ybs i.
 
+(*
 Definition step2_correct (acc: list ((B * B) * (B * B))) (i: 'I_n) :=
   let cas := unzip1 (unzip1 acc) in
   let cbs := unzip2 (unzip1 acc) in
@@ -449,7 +447,7 @@ Definition step2_correct (acc: list ((B * B) * (B * B))) (i: 'I_n) :=
   let xa := (xas `_ i_) in
   let xb := (xbs `_ i_) in
   acc_correct acc i_ -> @step2_1_correct sp (ca, cb) (xa, xb).
-
+*)
 Lemma add_cat (R : ringType) (s1 s2 t1 t2 : seq R) :
   size s1 = size t1 ->
   add (s1 ++ s2) (t1 ++ t2) = add s1 t1 ++ add s2 t2.
@@ -528,17 +526,16 @@ do !split => //=.
 rewrite /carry_correct in Hcc.
 rewrite /decimal_eq big_ord_recl /= subSS subn0.
 under eq_bigr do rewrite bump0 subSS.
+apply /eqP.
 rewrite [RHS]big_ord_recr /=.
-under [in RHS]eq_bigr do rewrite !(tnth_nth 0) /=.
 move: Hdec.
 rewrite /decimal_eq /=.
-under [in RHS]eq_bigr do rewrite !(tnth_nth 0) /=.
-move <-.
+move /eqP <-.
 rewrite addnA [RHS]addnC addnA.
 congr addn.
 rewrite expnS mulnA -!mulnDl.
 congr muln.
-rewrite !(tnth_nth 0) /= [RHS]addnC -Hcc.
+rewrite /= [RHS]addnC -Hcc.
 congr addn.
 move: Hsz Hyas Hybs; clear.
 case: acc => [| [[ca cb] [ya yb]] acc] //= => [] [] Hsz.
@@ -548,6 +545,28 @@ rewrite -!nth0 !nth_drop addn0.
 rewrite !add_cat /= ?(size_takel,size_tuple,size_rev,size_map,leqW) //= 1?ltnW //.
 by rewrite !cats1 => /rcons_inj [_ ->] /rcons_inj [_ ->].
 Qed.
+
+Lemma decimal_eq0:
+  decimal_eq [:: 0] [:: 0] [:: xas`_0] [:: xbs`_0] 0.
+Proof. by rewrite /decimal_eq /= !big_ord0 addn0. Qed.
+
+Lemma zn_to_z2_correct :
+  let acc := zn_to_z2 in
+  let cas := unzip1 (unzip1 acc) in
+  let cbs := unzip2 (unzip1 acc) in
+  let yas := unzip1 (unzip2 acc) in
+  let ybs := unzip2 (unzip2 acc) in
+  decimal_eq cas cbs yas ybs n.
+Proof.
+apply (foldl_ord_tuple zn_to_z2_folder_correct (init:=[:: ((0, 0), (tnth xas 0, tnth xbs 0))])).
+Undo 1.
+(* Discard all things from let...in *)
+have[|_ [] _ [] _ [] _ [] _ //]:= foldl_ord_tuple zn_to_z2_folder_correct (init:=[:: ((0, 0), (tnth xas 0, tnth xbs 0))]).
+rewrite /acc_correct /= !rev1 !take1 ?size_tuple //= !addr0 -!nth0 !(tnth_nth 0).
+  by rewrite decimal_eq0.
+Qed.
+  
+  
 
 End zn_to_z2_ntuple.
 
@@ -577,14 +596,15 @@ Eval compute in (demo_Alice3_Bob2_zn_to_z2).
 End zn_to_z2_demo.
 
 
+(**
 
-(*
-Memo: correctness means to find relations among those terms.
-For example: `ca_ = head_y.1 - xa_nth must equal to `ca` from the acc` .
-In this relation:
+About why the `apply` also works in  `zn_to_z2_correct` (not sure yet)
 
-1. how ca relates to the list and its head is explained.
-2. how ca should relate to acc is explained.
+   Our goal is to prove that of `decimal_eq2` holds with a fully accumulated acc after zn_to_z2,
+   and we know that how we define `acc_correct` is saying that `acc_correct` implies this `decimal_eq` goal,
+   so we use apply to transform the goal from `decimal_eq` to `acc_correct`.
 
-Things in the definition body will be explained such.
+   The term to apply, is `foldl_ord_tuple` which show the implication from `acc_correct` to
+   `decimal_eq` with things from `zn_to_z2`??
+
 *)
