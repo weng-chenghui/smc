@@ -260,7 +260,7 @@ End smc_scalar_product_facts.
 
 Section zn_to_z2.
 
-Let B := bool_comRingType.
+Let B := bool.
 
 (* vectors of B *)
 
@@ -315,6 +315,22 @@ Notation "t '!_' i" := (tnth t i) (at level 10). (* lv9: no parenthesis; so lv10
 Hypothesis xan : xas!_(ord_max) = false.
 Hypothesis xbn : xbs!_(ord_max) = false.
 Hypothesis sps_is_sp : forall i, is_scalar_product (sps !_ i).
+
+(*
+Record correct_cxy (x : n.+1.-tuple B) i :=
+  { c;
+    y;
+    _ : (rev c)`_0 == 0;
+    _ : rev y == take i.+1 x `+ rev c;
+  }.
+
+acc_correct i (a b : correct_cxy x i) := decimal_eq (c a) (c b) xas xbs (y a) (y b).
+*)
+
+Definition cxy_correct c (x : n.+1.-tuple B) y i :=
+  ((rev c)`_0 == 0) && (rev y == take i.+1 x `+ rev c) && (x!_(ord_max) == false).
+
+Record correct_cxy := {c; x; y; i; _ : cxy_correct c x y i}.
 
 (*acc: carry-bit Alice, Bob will receive; results Alice, bob will receive*)
 Definition zn_to_z2_folder (acc: list ((B * B) * (B * B))) (i: 'I_n):
@@ -561,6 +577,9 @@ Proof.
 apply (foldl_ord_tuple zn_to_z2_folder_correct (init:=[:: ((0, 0), (tnth xas 0, tnth xbs 0))])).
 Undo 1.
 (* Discard all things from let...in *)
+have := foldl_ord_tuple zn_to_z2_folder_correct (init:=[:: ((0, 0), (tnth xas 0, tnth xbs 0))]).
+case => //.
+
 have[|_ [] _ [] _ [] _ [] _ //]:= foldl_ord_tuple zn_to_z2_folder_correct (init:=[:: ((0, 0), (tnth xas 0, tnth xbs 0))]).
 rewrite /acc_correct /= !rev1 !take1 ?size_tuple //= !addr0 -!nth0 !(tnth_nth 0).
   by rewrite decimal_eq0.
