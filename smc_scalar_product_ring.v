@@ -260,7 +260,7 @@ End smc_scalar_product_facts.
 
 Section zn_to_z2.
 
-Let B := bool.
+Let B := bool_comRingType.
 
 (* vectors of B *)
 
@@ -575,11 +575,28 @@ Lemma zn_to_z2_correct :
   decimal_eq cas cbs yas ybs n.
 Proof.
 apply (foldl_ord_tuple zn_to_z2_folder_correct (init:=[:: ((0, 0), (tnth xas 0, tnth xbs 0))])).
+(* `apply` does too much magic so it hides the intention is to:
+
+        apply/foldl_ord_tuple .... --> to get decimal_eq from the current goal,
+        with a hint of implicit argument.
+
+        Because `foldl_ord_tuple` implies `decimal_eq`,
+        so we want to have `foldl_ord_tuple` as the premise, and tell Coq that we can get the
+        `decimal_eq` proved by proving this premise.
+
+    But since `case` the goal will split lots of trivial premises from the `acc_correct(s)`
+    inside `foldl_ord_tuple` after `have` it;
+
+    we destruct them one by one by the `have[|_ []... //]` line. Until we finally have one goal left.
+
+    Alternatively, we can do split and do destructing by `case=> [|_ [] _ []... //]` after the `have`.
+
+ *)
 Undo 1.
 (* Discard all things from let...in *)
 have := foldl_ord_tuple zn_to_z2_folder_correct (init:=[:: ((0, 0), (tnth xas 0, tnth xbs 0))]).
-case => //.
-
+case=>[| _ [] _ [] _ [] _ [] _ //].
+Undo 2.
 have[|_ [] _ [] _ [] _ [] _ //]:= foldl_ord_tuple zn_to_z2_folder_correct (init:=[:: ((0, 0), (tnth xas 0, tnth xbs 0))]).
 rewrite /acc_correct /= !rev1 !take1 ?size_tuple //= !addr0 -!nth0 !(tnth_nth 0).
   by rewrite decimal_eq0.
