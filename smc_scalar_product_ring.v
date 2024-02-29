@@ -260,7 +260,7 @@ End smc_scalar_product_facts.
 
 Section zn_to_z2.
 
-Let B := bool_comRingType.
+Let B := bool.
 
 (* vectors of B *)
 
