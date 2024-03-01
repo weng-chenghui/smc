@@ -566,7 +566,7 @@ Lemma decimal_eq0:
 Proof. by rewrite /decimal_eq /= !big_ord0 addn0. Qed.
 
 Lemma zn_to_z2_correct :
-  let acc := zn_to_z2 in
+  let acc := rev zn_to_z2 in
   let cas := unzip1 (unzip1 acc) in
   let cbs := unzip2 (unzip1 acc) in
   let yas := unzip1 (unzip2 acc) in
@@ -577,11 +577,9 @@ apply (foldl_ord_tuple zn_to_z2_folder_correct (init:=[:: ((0, 0), (tnth xas 0, 
 Undo 1.
 (* Discard all things from let...in *)
 have[|_ [] _ [] _ [] _ [] _ //]:= foldl_ord_tuple zn_to_z2_folder_correct (init:=[:: ((0, 0), (tnth xas 0, tnth xbs 0))]).
-rewrite /acc_correct /= !rev1 !take1 ?size_tuple //= !addr0 -!nth0 !(tnth_nth 0).
-  by rewrite decimal_eq0.
+rewrite /acc_correct /= !take1 ?size_tuple //= !addr0 -!nth0 !(tnth_nth 0).
+by rewrite decimal_eq0.
 Qed.
-  
-  
 
 End zn_to_z2_ntuple.
 
