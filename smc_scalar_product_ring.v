@@ -541,14 +541,17 @@ rewrite [RHS]big_ord_recr /= subSn // subnn /=.
 move: Hdec.
 rewrite /decimal_eq /=.
 move /eqP <-.
-rewrite addnA [RHS]addnC addnA.
-rewrite !(unzip1_rev,unzip2_rev) !nth_rev ?(size_map,Hsz) // subnn.
-(* wip *)
-
+under eq_bigr => j _.
+  rewrite !nth_rev /= ?(size_rev,size_map,Hsz) 2?ltnW // ?ltnS // subSS.
+  rewrite subSn 1?ltnW //=.
+  over.
+under [in RHS]eq_bigr
+  do rewrite !nth_rev /= ?(size_rev,size_map,Hsz) 1?ltnW // ?ltnS // subSS.
+rewrite addnA addnAC [RHS]addnAC.
 congr addn.
-rewrite expnS mulnA -!mulnDl.
+rewrite Hacc /=.
+rewrite expnS mulnA -!mulnDl -Hcc.
 congr muln.
-rewrite /= [RHS]addnC Hacc /= -Hcc.
 congr addn.
 move: Hsz Hyas Hybs; rewrite Hacc /=; clear => /= -[Hsz].
 rewrite !rev_cons -!cats1 -addn1 !takeD.
