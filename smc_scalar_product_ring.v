@@ -429,10 +429,8 @@ Definition acc_correct (acc: list ((B * B) * (B * B))) (i: nat) :=
   let yas := unzip1 (unzip2 acc) in
   let ybs := unzip2 (unzip2 acc) in
   [/\ size acc = i.+1,
-    [/\ cas`_0 = 0,  (* i.e. cas`_i = 0 *)
-      cbs`_0 = 0,
-      yas`_i = xas`_i + cas`_i
-      & ybs`_i = xbs`_i + cbs`_i]
+    yas`_i = xas`_i + cas`_i,
+    ybs`_i = xbs`_i + cbs`_i
     & decimal_eq cas cbs yas ybs i].
 
 (*
@@ -514,21 +512,21 @@ Proof.
 move=> []. 
 move Hacc: acc => [ |[[cai cbi] [ya yb]] acc'] //.
 rewrite -Hacc size_rev.
-move=> /= Hsz [Hca Hcb Hyas Hybs] Hdec.
+move=> /= Hsz Hyas Hybs Hdec.
 rewrite /zn_to_z2_folder {1}Hacc /= !(tnth_nth 0) /= bump0.
 have := step2_1_correctP (cai, cbi) (xas`_i, xbs`_i) (sps_is_sp i).
 rewrite /step2_1_correct /=. 
 case: step2_1 => tai tbi /= Htai_tbi.
 rewrite /acc_correct size_rev /= Hsz.
-rewrite !(unzip1_rev,unzip2_rev) in Hca Hcb Hyas Hybs Hdec *.
+rewrite !(unzip1_rev,unzip2_rev) in Hyas Hybs Hdec *.
 rewrite /step2_2 /=.
+rewrite !rev_cons !nth_rcons !size_rev !size_map Hsz /= ltnn eqxx.
 split => //.
-  by rewrite !rev_cons !nth_rcons !size_rev !size_map Hsz /= ltnn eqxx Hca Hcb.
 rewrite /decimal_eq 2!big_ord_recr /=.
-rewrite !nth_rev /= ?(size_rev,size_map,Hsz) // !(subnn,subSn) //=.
+rewrite !nth_rcons ?(size_rev,size_map,Hsz) ltnn eqxx ltnSn.
 move/eqP: Hdec => /= <-.
 apply/eqP.
-under eq_bigr do rewrite !(rev_cons,nth_rcons,size_rev,size_map,Hsz) ltnW ?ltnS //.
+under eq_bigr do rewrite !(nth_rcons,size_rev,size_map,Hsz) ltnW ?ltnS //.
 rewrite addnA addnAC [RHS]addnAC.
 congr addn.
 rewrite !nth_rev ?(size_rev,size_map,Hsz) // subnn Hacc /=.
