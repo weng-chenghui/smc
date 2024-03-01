@@ -507,15 +507,14 @@ Proof.
 move=> []. 
 case Hacc: acc => [|[[cai_ cbi_] [ya yb]] acc'] //.
 rewrite -Hacc.
-move=> Hsz [Hca [Hcb [Hyas [Hybs Hdec]]]].
+move=> /= Hsz [Hca [Hcb [Hyas [Hybs Hdec]]]].
 rewrite /zn_to_z2_folder {1}Hacc /=.
-have:=step2_1_correctP (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) (sps_is_sp i).
+rewrite !(tnth_nth 0) /= bump0.
+have:=step2_1_correctP (cai_, cbi_) (xas`_i, xbs`_i) (sps_is_sp i).
 rewrite /step2_1_correct /=. 
 case: step2_1 => tai_ tbi_ /= Htai_tbi.
-have Hbump : bump 0 i = (W i).+1 by [].
 rewrite /acc_correct /= Hsz.
 split => //.
-rewrite Hbump.
 rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
 rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
 rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
@@ -523,8 +522,7 @@ rewrite !(add_cat,rev_cat) //;
   try by rewrite size_takel !(size_tuple,size_rev,size_map) // ltnS ltnW.
 rewrite nth_cat size_rev !size_map {1}Hacc Hca /=.
 rewrite nth_cat size_rev !size_map {1}Hacc Hcb /=.
-rewrite Hyas Hybs !rev1 !(tnth_nth 0) /=.
-rewrite !(tnth_nth 0) /= in Htai_tbi.
+rewrite Hyas Hybs !rev1 /=.
 do !split => //=.
 have Hcc := carry_correctP Htai_tbi.
 rewrite /carry_correct in Hcc.
