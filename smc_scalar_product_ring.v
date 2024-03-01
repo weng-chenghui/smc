@@ -431,8 +431,8 @@ Definition acc_correct (acc: list ((B * B) * (B * B))) (i: nat) :=
   [/\ size acc = i.+1,
     [/\ cas`_0 = 0,  (* i.e. cas`_i = 0 *)
       cbs`_0 = 0,
-      yas = take i.+1 xas `+ cas
-      & ybs = take i.+1 xbs `+ cbs]
+      yas`_i = xas`_i + cas`_i
+      & ybs`_i = xbs`_i + cbs`_i]
     & decimal_eq cas cbs yas ybs i].
 
 (*
@@ -512,25 +512,18 @@ Lemma zn_to_z2_folder_correct acc i:
   acc_correct acc (W i) -> acc_correct (zn_to_z2_folder acc i) (S i).
 Proof.
 move=> []. 
-move Hacc: acc => [ |[[cai_ cbi_] [ya yb]] acc'] //.
+move Hacc: acc => [ |[[cai cbi] [ya yb]] acc'] //.
 rewrite -Hacc size_rev.
 move=> /= Hsz [Hca Hcb Hyas Hybs] Hdec.
-rewrite /zn_to_z2_folder {1}Hacc /=.
-rewrite !(tnth_nth 0) /= bump0.
-have:=step2_1_correctP (cai_, cbi_) (xas`_i, xbs`_i) (sps_is_sp i).
+rewrite /zn_to_z2_folder {1}Hacc /= !(tnth_nth 0) /= bump0.
+have := step2_1_correctP (cai, cbi) (xas`_i, xbs`_i) (sps_is_sp i).
 rewrite /step2_1_correct /=. 
-case: step2_1 => tai_ tbi_ /= Htai_tbi.
+case: step2_1 => tai tbi /= Htai_tbi.
 rewrite /acc_correct size_rev /= Hsz.
 rewrite !(unzip1_rev,unzip2_rev) in Hca Hcb Hyas Hybs Hdec *.
 rewrite /step2_2 /=.
 split => //.
-  rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
-  rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
-  rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
-  rewrite !(add_cat,rev_cat) //;
-    try by rewrite size_takel !(size_tuple,size_rev,size_map) // ltnS ltnW.
-  rewrite !nth_cat !size_rev !size_map Hsz /= Hca Hcb.
-  by rewrite Hyas Hybs !rev1.
+  by rewrite !rev_cons !nth_rcons !size_rev !size_map Hsz /= ltnn eqxx Hca Hcb.
 rewrite /decimal_eq 2!big_ord_recr /=.
 rewrite !nth_rev /= ?(size_rev,size_map,Hsz) // !(subnn,subSn) //=.
 move/eqP: Hdec => /= <-.
@@ -542,11 +535,8 @@ rewrite !nth_rev ?(size_rev,size_map,Hsz) // subnn Hacc /=.
 rewrite expnS mulnA -!mulnDl -(carry_correctP Htai_tbi).
 congr ((_ + _) * _)%N.
 move: Hsz Hyas Hybs; rewrite Hacc /=; clear => /= -[Hsz].
-rewrite !rev_cons -!cats1 -addn1 !takeD.
-rewrite !take1 ?size_drop ?subn_gt0 ?size_tuple 1?ltnW ?ltnS //.
-rewrite -!nth0 !nth_drop addn0.
-rewrite !add_cat /= ?(size_takel,size_tuple,size_rev,size_map,leqW) 1?ltnW //.
-by rewrite !cats1 => /rcons_inj [_ ->] /rcons_inj [_ ->].
+rewrite !rev_cons !nth_rcons !size_rev !size_map Hsz /= ltnn eqxx.
+by move => -> ->.
 Qed.
 
 Lemma decimal_eq0:
@@ -565,7 +555,7 @@ apply (foldl_ord_tuple zn_to_z2_folder_correct (init:=[:: ((0, 0), (tnth xas 0, 
 Undo 1.
 (* Discard all things from let...in *)
 have[|_ [] _ [] _ [] _ [] _ //]:= foldl_ord_tuple zn_to_z2_folder_correct (init:=[:: ((0, 0), (tnth xas 0, tnth xbs 0))]).
-rewrite /acc_correct /= !take1 ?size_tuple //= !addr0 -!nth0 !(tnth_nth 0).
+rewrite /acc_correct /= ?size_tuple //= !(tnth_nth 0) !addr0.
 by rewrite decimal_eq0.
 Qed.
 
