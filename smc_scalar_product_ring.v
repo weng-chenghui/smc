@@ -535,12 +535,14 @@ split => //.
 have Hcc := carry_correctP Htai_tbi.
 rewrite /carry_correct in Hcc.
 rewrite /decimal_eq big_ord_recr /=.
+rewrite !nth_rev /= ?(size_rev,size_map,Hsz) // subnn /=.
 apply /eqP.
-rewrite [RHS]big_ord_recr /=.
+rewrite [RHS]big_ord_recr /= subSn // subnn /=.
 move: Hdec.
 rewrite /decimal_eq /=.
 move /eqP <-.
 rewrite addnA [RHS]addnC addnA.
+rewrite !(unzip1_rev,unzip2_rev) !nth_rev ?(size_map,Hsz) // subnn.
 (* wip *)
 
 congr addn.
