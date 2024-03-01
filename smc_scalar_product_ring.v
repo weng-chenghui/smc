@@ -417,21 +417,22 @@ Definition carry_correct (ca cb ca' cb' xa xb : B) :=
 (* Note if the plus is not the correct one, add nat_of_bool function call for %R parts.*)
 (* By Print decimal_eq (Set Printing All)*)
 Definition decimal_eq (cas cbs yas ybs : list B) (i: nat) :=
-  ((cas `_ 0 + cbs `_ 0)%R * 2 ^ i +
-   \sum_(j < i) (yas `_ j.+1 + ybs `_ j.+1)%R * 2 ^ (i-j.+1) == (* `=` means a Prop; `==` means a bool *)
+  ((cas `_ i + cbs `_ i)%R * 2 ^ i +
+   \sum_(j < i) (yas `_ j + ybs `_ j)%R * 2 ^ j == (* `=` means a Prop; `==` means a bool *)
      \sum_(j < i) ((xas `_ j)%R + (xbs `_ j)%R) * 2 ^ j)%N.
 
 (* Here we expect `i < n+1` *)
 Definition acc_correct (acc: list ((B * B) * (B * B))) (i: nat) :=
+  let acc := rev acc in
   let cas := unzip1 (unzip1 acc) in
   let cbs := unzip2 (unzip1 acc) in
   let yas := unzip1 (unzip2 acc) in
   let ybs := unzip2 (unzip2 acc) in
   [/\ size acc = i.+1,
-    [/\ (rev cas)`_0 = 0,  (* i.e. cas`_i = 0 *)
-      (rev cbs)`_0 = 0,
-      rev yas = take i.+1 xas `+ rev cas
-      & rev ybs = take i.+1 xbs `+ rev cbs]
+    [/\ cas`_0 = 0,  (* i.e. cas`_i = 0 *)
+      cbs`_0 = 0,
+      yas = take i.+1 xas `+ cas
+      & ybs = take i.+1 xbs `+ cbs]
     & decimal_eq cas cbs yas ybs i].
 
 (*
@@ -501,6 +502,12 @@ rewrite /dotproduct /=. (* calc dotproduct*)
 by move: cai_ (xas`_i) (xbs`_i) cbi_ => [] [] [] [].
 Qed.
 
+Lemma unzip1_rev A C (s : seq (A*C)) : unzip1 (rev s) = rev (unzip1 s).
+Proof. exact: map_rev. Qed.
+
+Lemma unzip2_rev A C (s : seq (A*C)) : unzip2 (rev s) = rev (unzip2 s).
+Proof. exact: map_rev. Qed.
+
 Lemma zn_to_z2_folder_correct acc i:
   acc_correct acc (W i) -> acc_correct (zn_to_z2_folder acc i) (S i).
 Proof.
@@ -513,7 +520,9 @@ rewrite !(tnth_nth 0) /= bump0.
 have:=step2_1_correctP (cai_, cbi_) (xas`_i, xbs`_i) (sps_is_sp i).
 rewrite /step2_1_correct /=. 
 case: step2_1 => tai_ tbi_ /= Htai_tbi.
-rewrite /acc_correct /= Hsz.
+rewrite size_rev in Hsz.
+rewrite /acc_correct size_rev /= Hsz.
+rewrite !(unzip1_rev,unzip2_rev) in Hca Hcb Hyas Hybs *.
 split => //.
   rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
   rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
@@ -525,14 +534,15 @@ split => //.
   by rewrite Hyas Hybs !rev1.
 have Hcc := carry_correctP Htai_tbi.
 rewrite /carry_correct in Hcc.
-rewrite /decimal_eq big_ord_recl /= subSS subn0.
-under eq_bigr do rewrite bump0 subSS.
+rewrite /decimal_eq big_ord_recr /=.
 apply /eqP.
 rewrite [RHS]big_ord_recr /=.
 move: Hdec.
 rewrite /decimal_eq /=.
 move /eqP <-.
 rewrite addnA [RHS]addnC addnA.
+(* wip *)
+
 congr addn.
 rewrite expnS mulnA -!mulnDl.
 congr muln.
