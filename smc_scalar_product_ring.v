@@ -522,7 +522,7 @@ rewrite /step2_1_correct /=.
 case: step2_1 => tai_ tbi_ /= Htai_tbi.
 rewrite size_rev in Hsz.
 rewrite /acc_correct size_rev /= Hsz.
-rewrite !(unzip1_rev,unzip2_rev) in Hca Hcb Hyas Hybs *.
+rewrite !(unzip1_rev,unzip2_rev) in Hca Hcb Hyas Hybs Hdec *.
 split => //.
   rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
   rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
@@ -532,32 +532,28 @@ split => //.
   rewrite nth_cat size_rev !size_map {1}Hacc Hca /=.
   rewrite nth_cat size_rev !size_map {1}Hacc Hcb /=.
   by rewrite Hyas Hybs !rev1.
-have Hcc := carry_correctP Htai_tbi.
-rewrite /carry_correct in Hcc.
-rewrite /decimal_eq big_ord_recr /=.
-rewrite !nth_rev /= ?(size_rev,size_map,Hsz) // subnn /=.
-apply /eqP.
-rewrite [RHS]big_ord_recr /= subSn // subnn /=.
+rewrite /step2_2 /=.
+rewrite /decimal_eq 2!big_ord_recr /=.
+rewrite !nth_rev /= ?(size_rev,size_map,Hsz) // !(subnn,subSn) //=.
 move: Hdec.
 rewrite /decimal_eq /=.
-move /eqP <-.
-under eq_bigr => j _.
-  rewrite !nth_rev /= ?(size_rev,size_map,Hsz) 2?ltnW // ?ltnS // subSS.
-  rewrite subSn 1?ltnW //=.
-  over.
+move/eqP <-; apply/eqP.
+under eq_bigr
+  do rewrite !nth_rev /= ?(size_rev,size_map,Hsz) 2?ltnW // ?ltnS // subSS
+             subSn 1?ltnW //=.
 under [in RHS]eq_bigr
   do rewrite !nth_rev /= ?(size_rev,size_map,Hsz) 1?ltnW // ?ltnS // subSS.
 rewrite addnA addnAC [RHS]addnAC.
 congr addn.
-rewrite Hacc /=.
-rewrite expnS mulnA -!mulnDl -Hcc.
+rewrite !nth_rev ?(size_rev,size_map,Hsz) // subnn Hacc /=.
+rewrite expnS mulnA -!mulnDl -(carry_correctP Htai_tbi).
 congr muln.
 congr addn.
 move: Hsz Hyas Hybs; rewrite Hacc /=; clear => /= -[Hsz].
 rewrite !rev_cons -!cats1 -addn1 !takeD.
 rewrite !take1 ?size_drop ?subn_gt0 ?size_tuple 1?ltnW ?ltnS //.
 rewrite -!nth0 !nth_drop addn0.
-rewrite !add_cat /= ?(size_takel,size_tuple,size_rev,size_map,leqW) //= 1?ltnW //.
+rewrite !add_cat /= ?(size_takel,size_tuple,size_rev,size_map,leqW) 1?ltnW //.
 by rewrite !cats1 => /rcons_inj [_ ->] /rcons_inj [_ ->].
 Qed.
 
