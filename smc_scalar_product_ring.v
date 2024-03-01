@@ -513,42 +513,34 @@ Lemma zn_to_z2_folder_correct acc i:
 Proof.
 move=> []. 
 move Hacc: acc => [ |[[cai_ cbi_] [ya yb]] acc'] //.
-rewrite -Hacc.
+rewrite -Hacc size_rev.
 move=> /= Hsz [Hca Hcb Hyas Hybs] Hdec.
 rewrite /zn_to_z2_folder {1}Hacc /=.
 rewrite !(tnth_nth 0) /= bump0.
 have:=step2_1_correctP (cai_, cbi_) (xas`_i, xbs`_i) (sps_is_sp i).
 rewrite /step2_1_correct /=. 
 case: step2_1 => tai_ tbi_ /= Htai_tbi.
-rewrite size_rev in Hsz.
 rewrite /acc_correct size_rev /= Hsz.
 rewrite !(unzip1_rev,unzip2_rev) in Hca Hcb Hyas Hybs Hdec *.
+rewrite /step2_2 /=.
 split => //.
   rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
   rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
   rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
   rewrite !(add_cat,rev_cat) //;
     try by rewrite size_takel !(size_tuple,size_rev,size_map) // ltnS ltnW.
-  rewrite nth_cat size_rev !size_map {1}Hacc Hca /=.
-  rewrite nth_cat size_rev !size_map {1}Hacc Hcb /=.
+  rewrite !nth_cat !size_rev !size_map Hsz /= Hca Hcb.
   by rewrite Hyas Hybs !rev1.
-rewrite /step2_2 /=.
 rewrite /decimal_eq 2!big_ord_recr /=.
 rewrite !nth_rev /= ?(size_rev,size_map,Hsz) // !(subnn,subSn) //=.
-move: Hdec.
-rewrite /decimal_eq /=.
-move/eqP <-; apply/eqP.
-under eq_bigr
-  do rewrite !nth_rev /= ?(size_rev,size_map,Hsz) 2?ltnW // ?ltnS // subSS
-             subSn 1?ltnW //=.
-under [in RHS]eq_bigr
-  do rewrite !nth_rev /= ?(size_rev,size_map,Hsz) 1?ltnW // ?ltnS // subSS.
+move/eqP: Hdec => /= <-.
+apply/eqP.
+under eq_bigr do rewrite !(rev_cons,nth_rcons,size_rev,size_map,Hsz) ltnW ?ltnS //.
 rewrite addnA addnAC [RHS]addnAC.
 congr addn.
 rewrite !nth_rev ?(size_rev,size_map,Hsz) // subnn Hacc /=.
 rewrite expnS mulnA -!mulnDl -(carry_correctP Htai_tbi).
-congr muln.
-congr addn.
+congr ((_ + _) * _)%N.
 move: Hsz Hyas Hybs; rewrite Hacc /=; clear => /= -[Hsz].
 rewrite !rev_cons -!cats1 -addn1 !takeD.
 rewrite !take1 ?size_drop ?subn_gt0 ?size_tuple 1?ltnW ?ltnS //.
