@@ -260,7 +260,7 @@ End smc_scalar_product_facts.
 
 Section zn_to_z2.
 
-Let B := bool_comRingType.
+Let B := bool.
 
 (* vectors of B *)
 
@@ -489,6 +489,18 @@ Proof.
 by case: s => [| ? []].
 Qed.
 
+Lemma carry_correctP  cai_ cbi_ tai_ tbi_ (i : 'I_n) :
+  tai_ + tbi_ = [:: cai_; xas`_i; xas`_i] `* [:: xbs`_i; cbi_; xbs`_i] ->
+  carry_correct (cai_ * xas`_i + tai_) (cbi_ * xbs`_i + tbi_)
+                cai_ cbi_ xas`_i xbs`_i.
+Proof.
+move => Htai_tbi.
+rewrite /carry_correct /=.
+rewrite -(addrC tbi_) addrA -(addrA _ tai_) (addrA tai_) {}Htai_tbi.
+rewrite /dotproduct /=. (* calc dotproduct*)
+by move: cai_ (xas`_i) (xbs`_i) cbi_ => [] [] [] [].
+Qed.
+
 Lemma zn_to_z2_folder_correct acc i:
   acc_correct acc (W i) -> acc_correct (zn_to_z2_folder acc i) (S i).
 Proof.
@@ -499,9 +511,7 @@ move=> Hsz [Hca [Hcb [Hyas [Hybs Hdec]]]].
 rewrite /zn_to_z2_folder {1}Hacc /=.
 have:=step2_1_correctP (cai_, cbi_) (xas !_ (W i), xbs !_ (W i)) (sps_is_sp i).
 rewrite /step2_1_correct /=. 
-destruct step2_1 as [tai_ tbi_].
-simpl.
-move=> Htai_tbi.
+case: step2_1 => tai_ tbi_ /= Htai_tbi.
 have Hbump : bump 0 i = (W i).+1 by [].
 rewrite /acc_correct /= Hsz.
 split => //.
@@ -514,15 +524,9 @@ rewrite !(add_cat,rev_cat) //;
 rewrite nth_cat size_rev !size_map {1}Hacc Hca /=.
 rewrite nth_cat size_rev !size_map {1}Hacc Hcb /=.
 rewrite Hyas Hybs !rev1 !(tnth_nth 0) /=.
-have Hcc : carry_correct (cai_ * xas`_i + tai_) (cbi_ * xbs`_i + tbi_)
-    (unzip1 (unzip1 acc))`_0 (unzip2 (unzip1 acc))`_0 xas`_i xbs`_i.
-  rewrite /carry_correct Hacc /=.
-  rewrite -(addrC tbi_) addrA -(addrA _ tai_) Htai_tbi.
-  rewrite /dotproduct /=. (* calc dotproduct*)
-  rewrite !(tnth_nth 0) /=.
-  clear.
-  by move: cai_ (xas`_i) (xbs`_i) cbi_ => [] [] [] [].
+rewrite !(tnth_nth 0) /= in Htai_tbi.
 do !split => //=.
+have Hcc := carry_correctP Htai_tbi.
 rewrite /carry_correct in Hcc.
 rewrite /decimal_eq big_ord_recl /= subSS subn0.
 under eq_bigr do rewrite bump0 subSS.
@@ -535,10 +539,9 @@ rewrite addnA [RHS]addnC addnA.
 congr addn.
 rewrite expnS mulnA -!mulnDl.
 congr muln.
-rewrite /= [RHS]addnC -Hcc.
+rewrite /= [RHS]addnC Hacc /= -Hcc.
 congr addn.
-move: Hsz Hyas Hybs; clear.
-case: acc => [| [[ca cb] [ya yb]] acc] //= => [] [] Hsz.
+move: Hsz Hyas Hybs; rewrite Hacc /=; clear => /= -[Hsz].
 rewrite !rev_cons -!cats1 -addn1 !takeD.
 rewrite !take1 ?size_drop ?subn_gt0 ?size_tuple 1?ltnW ?ltnS //.
 rewrite -!nth0 !nth_drop addn0.
