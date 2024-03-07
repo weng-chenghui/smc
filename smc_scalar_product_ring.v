@@ -21,6 +21,26 @@ move/succn_inj/size0nil->.
 by exists a.
 Qed.
 
+Lemma unzip1_cat (S T : Type) (s1 s2 : seq (S * T)) :
+  unzip1 (s1 ++ s2) = unzip1 s1 ++ unzip1 s2.
+Proof.
+Admitted.
+
+Lemma unzip1_rcons (S T : Type) (st : seq (S * T)) (s' : S) (t' : T) :
+  unzip1 (rcons st (s', t')) = rcons (unzip1 st) s'.
+Proof.
+rewrite -cats1 -[RHS]cats1.
+rewrite /unzip1.
+Admitted.
+
+Lemma unzip2_rcons (S T : Type) (st : seq (S * T)) (s' : S) (t' : T) :
+  unzip2 (rcons st (s', t')) = rcons (unzip2 st) t'.
+Proof.
+rewrite -cats1 -[RHS]cats1.
+rewrite /unzip2.
+Admitted.
+
+
 Lemma take_zip (S T : Type) (s : seq S) (t : seq T) n :
   take n (zip s t) = zip (take n s) (take n t).
 Proof. by elim: n s t => [|n IH] [|s1 s] [|t1 t] //=; rewrite IH. Qed.
@@ -262,8 +282,6 @@ Section zn_to_z2.
 
 Let B := bool.
 
-(* vectors of B *)
-
 
 Definition step2_1 (sp: SMC B) (ci xi: (B * B)) : (B * B) :=
   sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2].
@@ -319,7 +337,7 @@ Hypothesis sps_is_sp : forall i, is_scalar_product (sps !_ i).
 (*acc: carry-bit Alice, Bob will receive; results Alice, bob will receive*)
 Definition zn_to_z2_folder (acc: list ((B * B) * (B * B))) (i: 'I_n):
   list ((B * B) * (B * B)) :=
-	let '((ca, cb), _) := head ((0,0),(0,0)) acc in
+	let '((ca, cb), _) := last ((0,0),(0,0)) acc in
 	let sp := tnth sps i in
 	let i_ := W i in (* make it can use the implicit argument *)
 	let i' := S i in
@@ -327,15 +345,25 @@ Definition zn_to_z2_folder (acc: list ((B * B) * (B * B))) (i: 'I_n):
 	let xa' := xas !_ i' in
 	let xb := xbs !_ i_ in
 	let xb' := xbs !_ i' in
-	step2_2 (step2_1 sp (ca, cb) (xa, xb)) (ca, cb) (xa, xb) (xa', xb') :: acc.
+        (* in the original paper: 
+            c_i+1 = f(c_i, t_i)
+            y_i+1 = g(x_i+1, c_i+1)
+
+           So if we want to accumulate them in the same order, the latest result
+           will be the rightmost element in acc, at the (i+1)th=(i') position.
+        *)
+	rcons acc (step2_2 (step2_1 sp (ca, cb) (xa, xb)) (ca, cb) (xa, xb) (xa', xb')).
 
 (* xs[0] = lowest bit *)
 Definition zn_to_z2 :=
-	let init := [:: ((0, 0), (tnth xas 0, tnth xbs 0))] in  (* For party A,B: c0=0, y0=x0 *)
-	foldl zn_to_z2_folder init (ord_tuple n). 
+  let init := [:: ((0, 0), (tnth xas 0, tnth xbs 0))] in  (* For party A,B: c0=0, y0=x0 *)
+  (* Note: Because we just get indicates from the list, foldl or foldr won't make difference *)
+  foldl zn_to_z2_folder init (ord_tuple n).
+
 
 
 (*
+
 Variables i : nat.
 
 Eval unfold is_true in is_true (n-i<n.+1)%N.
@@ -428,10 +456,10 @@ Definition acc_correct (acc: list ((B * B) * (B * B))) (i: nat) :=
   let yas := unzip1 (unzip2 acc) in
   let ybs := unzip2 (unzip2 acc) in
   [/\ size acc = i.+1,
-    [/\ (rev cas)`_0 = 0,  (* i.e. cas`_i = 0 *)
-      (rev cbs)`_0 = 0,
-      rev yas = take i.+1 xas `+ rev cas
-      & rev ybs = take i.+1 xbs `+ rev cbs]
+    [/\ last 0 cas = 0,
+      last 0 cbs = 0,
+      yas = take i.+1 xas `+ cas
+      & ybs = take i.+1 xbs `+ cbs]
     & decimal_eq cas cbs yas ybs i].
 
 (*
@@ -517,6 +545,9 @@ rewrite /acc_correct /= Hsz.
 split => //.
   rewrite (take_nth 0 (s:=xas)) ? size_tuple ? ltnS //=.
   rewrite (take_nth 0 (s:=xbs)) ? size_tuple ? ltnS //=.
+  rewrite !unzip1_rcons !unzip2_rcons.
+  rewrite !last_rcons.
+  rewrite nth_cat.
   rewrite -!cats1 -!(cat1s _ (unzip1 _)) -!(cat1s _ (unzip2 _)).
   rewrite !(add_cat,rev_cat) //;
     try by rewrite size_takel !(size_tuple,size_rev,size_map) // ltnS ltnW.
