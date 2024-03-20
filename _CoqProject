@@ -1,3 +1,5 @@
+-arg -w -arg -notation-overridden
+
 smc_scalar_product.v
 
 -R . smccoq
