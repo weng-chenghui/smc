@@ -17,3 +17,6 @@ doc/*.html
 *.vok
 *.vos
 memo*.v
+
+Makefile.coq
+Makefile.coq.conf
