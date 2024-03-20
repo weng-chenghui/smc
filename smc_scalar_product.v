@@ -163,8 +163,7 @@ Local Open Scope ring_scope.
 
 Section smc_scalar_product.
 
-Variable (R:ringType).
-Variable (Xa Xb Ra Rb X'a X'b: seq R) (ra rb ya yb t_: R).
+Variable R:ringType.
 
 Definition dotproduct (la lb: list R) : R :=
 	foldl +%R 0 (zipWith *%R la lb).
@@ -195,6 +194,7 @@ Lemma add_cat (s1 s2 t1 t2 : seq R) :
   size s1 = size t1 ->
   add (s1 ++ s2) (t1 ++ t2) = add s1 t1 ++ add s2 t2.
 Proof. elim: s1 t1 => [|a aa IH] [|b bb] //= [Hs]. by rewrite IH. Qed.
+
 Lemma rev_add (s t : seq R) :
   size s = size t -> rev (s `+ t) = rev s `+ rev t.
 Proof.
@@ -209,35 +209,15 @@ Proof.
 by case: s => [| ? []].
 Qed.
 
-Hypothesis X'a_correctP : X'a = Ra `+ Xa.
-Hypothesis ya_correctP : ya = t_ - (Ra `* X'b) + ra.
-Hypothesis X'b_correctP : X'b = Rb `+ Xb.
-Hypothesis t_correctP : t_ = (Xb `* X'a) + rb - yb.
-
-Record alice_own :=
-  AliceOwn
-    {
-       recv_X'b;
-       recv_t;
-       ya_correct: ya = recv_t - (Ra `* recv_X'b) + ra;
-    }.
-
-Record bob_own :=
-  BobOwn
-    {
-       recv_X'a;
-       t_correct: t_ = (Xb `* recv_X'a) + rb - yb;
-    }.
-
 Definition commodity_rb  (Ra Rb: list R) (ra: R): R :=
 	(Ra `* Rb) - ra.
 
-Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R * (alice_own * bob_own)) :=
+Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R) :=
 	let X'a := Xa `+ Ra in
 	let X'b := Xb `+ Rb in
 	let t := (Xb `* X'a) + rb - yb in
 	let ya := t - (Ra `* X'b) + ra in
-	(ya, yb, (AliceOwn ya_correctP, BobOwn t_correctP)).
+	(ya, yb).
 
 Definition demo_Alice3_Bob2 : (R * R) :=
 	let Ra := [:: 9 ] in
@@ -247,44 +227,25 @@ Definition demo_Alice3_Bob2 : (R * R) :=
 	let Xa := [:: 3 ] in
 	let Xb := [:: 2 ] in
 	let yb := 66 in
-	(scalar_product Ra Rb ra rb yb Xa Xb).1.
+	scalar_product Ra Rb ra rb yb Xa Xb.
 
-Definition SMC := list R -> list R -> (R * R * (alice_own * bob_own)).
+Definition SMC := list R -> list R -> (R * R).
 
 Definition is_scalar_product (sp: SMC) :=
   forall(Xa Xb: list R),
-  (sp Xa Xb).1.1 + (sp Xa Xb).1.2 = Xa `* Xb.
+  (sp Xa Xb).1 + (sp Xa Xb).2 = Xa `* Xb.
+
 End smc_scalar_product.
 
-About SMC.
+Eval compute in (demo_Alice3_Bob2 [ringType of int]).
 
-(*
-Note sure why it doesn't work here.
-
-Variable (R:ringType).
-Variable (Xa Xb Ra Rb X'a X'b: seq R) (ra rb ya yb t_: R).
- 
 Notation "la '`*' lb" := (dotproduct la lb).
 Notation "la '`+' lb" := (add la lb).
-
-Hypothesis X'a_correctP : X'a = Ra `+ Xa.
-Hypothesis ya_correctP : ya = t_ - (Ra `* X'b) + ra.
-Hypothesis X'b_correctP : X'b = Rb `+ Xb.
-Hypothesis t_correctP : t_ = (Xb `* X'a) + rb - yb.
-Eval compute in (demo_Alice3_Bob2 ya_correctP t_correctP [ringType of int]).
-*)
 
 Section smc_scalar_product_facts.
-  
-Variable (R:comRingType).
-Variable (Xa Xb Ra Rb X'a X'b: seq R) (ra rb ya yb t_: R).
-Notation "la '`*' lb" := (dotproduct la lb).
-Notation "la '`+' lb" := (add la lb).
 
-Hypothesis X'a_correctP : X'a = Ra `+ Xa.
-Hypothesis ya_correctP : ya = t_ - (Ra `* X'b) + ra.
-Hypothesis X'b_correctP : X'b = Rb `+ Xb.
-Hypothesis t_correctP : t_ = (Xb `* X'a) + rb - yb.
+(* to prove, need comRingType, not just ringtype *)
+Variable R:comRingType.
 
 Lemma dot_productC (aa bb : list R) : aa `* bb = bb `* aa.
 Proof.
@@ -310,16 +271,15 @@ elim: aa bb cc z 0 => [| a aa IH] [| b bb] [|c cc] z z2 //=;
   rewrite ?IH -!dot_productE //=; ring.
 Qed.
 
-Lemma scalar_product_correct:
+Lemma scalar_product_correct (Ra Rb : list R) (ra yb : R) :
   let rb := commodity_rb Ra Rb ra in
-  is_scalar_product (scalar_product ya_correctP t_correctP Ra Rb ra rb yb).
+  is_scalar_product (scalar_product Ra Rb ra rb yb).
 Proof.
-rewrite /is_scalar_product /=.
-move=>Xa_ Xb_.
+move=>/=Xa Xb/=.
 rewrite /commodity_rb.
 rewrite !dot_productDr.
-rewrite (dot_productC Xb_ Xa_).
-rewrite (dot_productC Xb_ Ra).
+rewrite (dot_productC Xb Xa).
+rewrite (dot_productC Xb Ra).
 ring.
 Qed.
 
@@ -333,9 +293,6 @@ End smc_scalar_product_facts.
 Section zn_to_z2.
 
 Let B := bool.
-Variable (Xa Xb Ra Rb X'a X'b: seq B) (ra rb ya yb t_: B).
-
-About SMC.
 
 Definition step2_1 (sp: SMC B) (ci xi: (B * B)) : (B * B) :=
   sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2].
