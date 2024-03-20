@@ -212,19 +212,23 @@ Qed.
 Definition commodity_rb  (Ra Rb: list R) (ra: R): R :=
 	(Ra `* Rb) - ra.
 
-Record party_owned :=
-  PartyOwned {
-    X' : seq R;
-    t  : R;
-    y  : R;
+Record alice_received :=
+  AliceReceived {
+    X'b : seq R;
+    t   : R;
   }.
 
-Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R * (party_owned * party_owned)) :=
+Record bob_received :=
+  BobReceived {
+    X'a : seq R;
+  }.
+
+Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R * (alice_received * bob_received)) :=
 	let X'a := Xa `+ Ra in
 	let X'b := Xb `+ Rb in
 	let t := (Xb `* X'a) + rb - yb in
 	let ya := t - (Ra `* X'b) + ra in
-	(ya, yb, (PartyOwned X'b t ya, PartyOwned X'a t yb)).
+	(ya, yb, (AliceReceived X'b t, BobReceived X'a)).
 
 Definition demo_Alice3_Bob2 : (R * R) :=
 	let Ra := [:: 9 ] in
@@ -236,7 +240,7 @@ Definition demo_Alice3_Bob2 : (R * R) :=
 	let yb := 66 in
 	(scalar_product Ra Rb ra rb yb Xa Xb).1.
 
-Definition SMC := list R -> list R -> (R * R * (party_owned * party_owned)).
+Definition SMC := list R -> list R -> (R * R * (alice_received * bob_received)).
 
 Definition is_scalar_product (sp: SMC) :=
   forall(Xa Xb: list R),
@@ -302,7 +306,7 @@ Section zn_to_z2.
 Let B := bool.
 
 Definition step2_1 (sp: SMC B) (ci xi: (B * B)) : (B * B) :=
-  sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2].
+  (sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2]).1.
 
 Definition step2_1_correct (sp: SMC B) (ci xi: B * B) :=
     let alice_input := [:: ci.1; xi.1; xi.1] in
