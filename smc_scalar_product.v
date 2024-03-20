@@ -212,12 +212,19 @@ Qed.
 Definition commodity_rb  (Ra Rb: list R) (ra: R): R :=
 	(Ra `* Rb) - ra.
 
-Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R * ((seq R * R * R) * (seq R * R * R))) :=
+Record party_owned :=
+  PartyOwned {
+    X' : seq R;
+    t  : R;
+    y  : R;
+  }.
+
+Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R * (party_owned * party_owned)) :=
 	let X'a := Xa `+ Ra in
 	let X'b := Xb `+ Rb in
 	let t := (Xb `* X'a) + rb - yb in
 	let ya := t - (Ra `* X'b) + ra in
-	(ya, yb, ((X'b, t, ya), (X'a, t, yb))).
+	(ya, yb, (PartyOwned X'b t ya, PartyOwned X'a t yb)).
 
 Definition demo_Alice3_Bob2 : (R * R) :=
 	let Ra := [:: 9 ] in
@@ -229,11 +236,11 @@ Definition demo_Alice3_Bob2 : (R * R) :=
 	let yb := 66 in
 	(scalar_product Ra Rb ra rb yb Xa Xb).1.
 
-Definition SMC := list R -> list R -> (R * R).
+Definition SMC := list R -> list R -> (R * R * (party_owned * party_owned)).
 
 Definition is_scalar_product (sp: SMC) :=
   forall(Xa Xb: list R),
-  (sp Xa Xb).1 + (sp Xa Xb).2 = Xa `* Xb.
+  (sp Xa Xb).1.1 + (sp Xa Xb).1.2 = Xa `* Xb.
 
 End smc_scalar_product.
 
