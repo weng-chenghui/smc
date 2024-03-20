@@ -219,7 +219,7 @@ Record alice_owned :=
     Xa  : seq R;
     X'b : seq R;
     ra  : R;
-    t   : R;
+    recv_t   : R;
     ya  : R;
   }.
 
@@ -229,7 +229,8 @@ Record bob_owned :=
     Rb  : seq R;
     Xb  : seq R;
     X'a : seq R;
-    rb  : seq R;
+    rb  : R;
+    send_t : R;
     yb  : R;
   }.
 
@@ -238,10 +239,10 @@ Record bob_owned :=
    so temporarily separate it from the record.
  *)
 Definition is_alice_owned (ao: alice_owned) :=
-  ya ao = t ao - (Ra ao `* X'b ao) + ra ao.
+  ya ao = recv_t ao - (Ra ao `* X'b ao) + ra ao.
 
-Definition is_bob_owned (bo: alice_owned) :=
-  t bo = (Xb bo `* X'a bo) + rb bo - yb bo.
+Definition is_bob_owned (bo: bob_owned) :=
+  send_t bo = (Xb bo `* X'a bo) + rb bo - yb bo.
 
 
 Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R * (alice_owned * bob_owned)) :=
@@ -249,7 +250,7 @@ Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R 
 	let X'b := Xb `+ Rb in
 	let t := (Xb `* X'a) + rb - yb in
 	let ya := t - (Ra `* X'b) + ra in
-	(ya, yb, (AliceOwned Xa X'b t ya, BobOwned Xb X'a yb)).
+	(ya, yb, (AliceOwned Ra Xa X'b ra t ya, BobOwned Rb Xb X'a rb t yb)).
 
 Definition demo_Alice3_Bob2 : (R * R) :=
 	let Ra := [:: 9 ] in
