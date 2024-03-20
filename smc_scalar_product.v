@@ -212,12 +212,44 @@ Qed.
 Definition commodity_rb  (Ra Rb: list R) (ra: R): R :=
 	(Ra `* Rb) - ra.
 
-Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R) :=
+(* Owned: genereated in or received by Alice *)
+Record alice_owned :=
+  AliceOwned {
+    Ra  : seq R;
+    Xa  : seq R;
+    X'b : seq R;
+    ra  : R;
+    t   : R;
+    ya  : R;
+  }.
+
+(* Owned: genereated in or received by Bob *)
+Record bob_owned :=
+  BobOwned {
+    Rb  : seq R;
+    Xb  : seq R;
+    X'a : seq R;
+    rb  : seq R;
+    yb  : R;
+  }.
+
+(* Put this definition in the record will make every time we have the record,
+   we need to provide the hypothesis,
+   so temporarily separate it from the record.
+ *)
+Definition is_alice_owned (ao: alice_owned) :=
+  ya ao = t ao - (Ra ao `* X'b ao) + ra ao.
+
+Definition is_bob_owned (bo: alice_owned) :=
+  t bo = (Xb bo `* X'a bo) + rb bo - yb bo.
+
+
+Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R * (alice_owned * bob_owned)) :=
 	let X'a := Xa `+ Ra in
 	let X'b := Xb `+ Rb in
 	let t := (Xb `* X'a) + rb - yb in
 	let ya := t - (Ra `* X'b) + ra in
-	(ya, yb).
+	(ya, yb, (AliceOwned Xa X'b t ya, BobOwned Xb X'a yb)).
 
 Definition demo_Alice3_Bob2 : (R * R) :=
 	let Ra := [:: 9 ] in
@@ -227,13 +259,13 @@ Definition demo_Alice3_Bob2 : (R * R) :=
 	let Xa := [:: 3 ] in
 	let Xb := [:: 2 ] in
 	let yb := 66 in
-	scalar_product Ra Rb ra rb yb Xa Xb.
+	(scalar_product Ra Rb ra rb yb Xa Xb).1.
 
-Definition SMC := list R -> list R -> (R * R).
+Definition SMC := list R -> list R -> (R * R * (alice_owned * bob_owned)).
 
 Definition is_scalar_product (sp: SMC) :=
   forall(Xa Xb: list R),
-  (sp Xa Xb).1 + (sp Xa Xb).2 = Xa `* Xb.
+  (sp Xa Xb).1.1 + (sp Xa Xb).1.2 = Xa `* Xb.
 
 End smc_scalar_product.
 
@@ -295,7 +327,7 @@ Section zn_to_z2.
 Let B := bool.
 
 Definition step2_1 (sp: SMC B) (ci xi: (B * B)) : (B * B) :=
-  sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2].
+  (sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2]).1.
 
 Definition step2_1_correct (sp: SMC B) (ci xi: B * B) :=
     let alice_input := [:: ci.1; xi.1; xi.1] in
