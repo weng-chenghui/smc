@@ -325,7 +325,7 @@ End smc_scalar_product_facts.
 *)
 Section zn_to_z2.
 
-Let B := bool.
+Let B := bool_comRingType.
 
 Definition step2_1 (sp: SMC B) (ci xi: (B * B)) : (B * B) :=
   (sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2]).1.
@@ -366,7 +366,7 @@ End zn_to_z2.
 
 Section zn_to_z2_ntuple.
 
-Let B := bool.
+Let B := bool_comRingType.
 
 Variable (n: nat) (sps: n.-tuple (SMC B)) (xas xbs: n.+1.-tuple B).
 
