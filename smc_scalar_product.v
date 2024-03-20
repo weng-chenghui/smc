@@ -212,23 +212,44 @@ Qed.
 Definition commodity_rb  (Ra Rb: list R) (ra: R): R :=
 	(Ra `* Rb) - ra.
 
-Record alice_received :=
-  AliceReceived {
+(* Owned: genereated in or received by Alice *)
+Record alice_owned :=
+  AliceOwned {
+    Ra  : seq R;
+    Xa  : seq R;
     X'b : seq R;
+    ra  : R;
     t   : R;
+    ya  : R;
   }.
 
-Record bob_received :=
-  BobReceived {
+(* Owned: genereated in or received by Bob *)
+Record bob_owned :=
+  BobOwned {
+    Rb  : seq R;
+    Xb  : seq R;
     X'a : seq R;
+    rb  : seq R;
+    yb  : R;
   }.
 
-Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R * (alice_received * bob_received)) :=
+(* Put this definition in the record will make every time we have the record,
+   we need to provide the hypothesis,
+   so temporarily separate it from the record.
+ *)
+Definition is_alice_owned (ao: alice_owned) :=
+  ya ao = t ao - (Ra ao `* X'b ao) + ra ao.
+
+Definition is_bob_owned (bo: alice_owned) :=
+  t bo = (Xb bo `* X'a bo) + rb bo - yb bo.
+
+
+Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R * (alice_owned * bob_owned)) :=
 	let X'a := Xa `+ Ra in
 	let X'b := Xb `+ Rb in
 	let t := (Xb `* X'a) + rb - yb in
 	let ya := t - (Ra `* X'b) + ra in
-	(ya, yb, (AliceReceived X'b t, BobReceived X'a)).
+	(ya, yb, (AliceOwned Xa X'b t ya, BobOwned Xb X'a yb)).
 
 Definition demo_Alice3_Bob2 : (R * R) :=
 	let Ra := [:: 9 ] in
@@ -240,7 +261,7 @@ Definition demo_Alice3_Bob2 : (R * R) :=
 	let yb := 66 in
 	(scalar_product Ra Rb ra rb yb Xa Xb).1.
 
-Definition SMC := list R -> list R -> (R * R * (alice_received * bob_received)).
+Definition SMC := list R -> list R -> (R * R * (alice_owned * bob_owned)).
 
 Definition is_scalar_product (sp: SMC) :=
   forall(Xa Xb: list R),
