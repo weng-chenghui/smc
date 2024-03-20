@@ -212,12 +212,12 @@ Qed.
 Definition commodity_rb  (Ra Rb: list R) (ra: R): R :=
 	(Ra `* Rb) - ra.
 
-Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R) :=
+Definition scalar_product (Ra Rb: list R) (ra rb yb: R) (Xa Xb: list R): (R * R * ((seq R * R * R) * (seq R * R * R))) :=
 	let X'a := Xa `+ Ra in
 	let X'b := Xb `+ Rb in
 	let t := (Xb `* X'a) + rb - yb in
 	let ya := t - (Ra `* X'b) + ra in
-	(ya, yb).
+	(ya, yb, ((X'b, t, ya), (X'a, t, yb))).
 
 Definition demo_Alice3_Bob2 : (R * R) :=
 	let Ra := [:: 9 ] in
@@ -227,7 +227,7 @@ Definition demo_Alice3_Bob2 : (R * R) :=
 	let Xa := [:: 3 ] in
 	let Xb := [:: 2 ] in
 	let yb := 66 in
-	scalar_product Ra Rb ra rb yb Xa Xb.
+	(scalar_product Ra Rb ra rb yb Xa Xb).1.
 
 Definition SMC := list R -> list R -> (R * R).
 
