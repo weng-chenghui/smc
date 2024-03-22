@@ -113,38 +113,15 @@ Qed.
 
 Arguments zipWithC [A B] f.
 
-Variable n:nat.
+Section iteri_dep.
+Variables (A : nat -> Type) (f : forall i, A i -> A i.+1) (init : A 0).
+Fixpoint iteri_dep n : A n := if n is i.+1 then f (iteri_dep i) else init.
 
-Lemma foldl_ord_tuple (A: Type) (f: A -> 'I_n -> A) (P: A -> nat -> Prop) (init: A) :
-  (forall acc (i:'I_n), P acc i -> P (f acc i) i.+1 )->
-  P init 0%N -> P (foldl f init (ord_tuple n)) n.
-Proof.
-move=>H.
-pose i:=n.
-have Hi:(i <= n)%N by [].
-have ->: (0 = n - i)%N by rewrite subnn.
-have ->: ord_tuple n = drop (n-i) (ord_tuple n) :> list _.
-  by rewrite /= subnn drop0.
-elim: i Hi init => [|i IH] Hi init Hinit.
-  rewrite /=.
-  rewrite subn0 drop_oversize //=.
-    by rewrite subn0 in Hinit.
-  by rewrite size_enum_ord.
-have Hi': (n - i.+1 < n)%N by rewrite (_ : i = Ordinal Hi) // rev_ord_proof.
-move /(_ init (Ordinal Hi')) in H.
-have Hn': (n - i < n.+1)%N by rewrite ltnS leq_subr.
-rewrite (_: (Ordinal Hi').+1 = n - i)%N in H;last first.
-  by rewrite /= subnS prednK // subn_gt0.
-move:(IH (ltnW Hi) _ (H Hinit)).
-suff: drop (n - i.+1) (ord_tuple n) = Ordinal Hi' :: drop (n - i) (ord_tuple n).
-  by move ->.
-rewrite -{1}(cat_take_drop (n-i.+1) (ord_tuple n)).
-rewrite drop_size_cat; last by rewrite size_takel // size_tuple leq_subr.
-rewrite (drop_nth (Ordinal Hi')) ?size_tuple //.
-rewrite {3}subnS prednK ?subn_gt0 //.
-by rewrite {2}(_ : (n-i.+1)%N = Ordinal Hi') // -tnth_nth tnth_ord_tuple.
-Qed.
-
+Lemma iteri_dep_ind (P : forall {i}, A i -> Prop) :
+  (forall i (acc : A i), P acc -> P (f acc)) -> P init ->
+  forall n, P (iteri_dep n).
+Proof. by move=> IH P0; elim => //= n /IH. Qed.
+End iteri_dep.
 End seq_extra.
 
 Import GRing.Theory Num.Theory.
@@ -371,10 +348,6 @@ Let B := bool.
 Variable (n: nat) (sps: n.-tuple (SMC B)) (xas xbs: n.+1.-tuple B).
 
 
-Let W {n} (i : 'I_n) : 'I_n.+1 := widen_ord (@leqnSn _) i.
-Let S {n} (i : 'I_n) : 'I_n.+1 := lift ord0 i.
-Let Wi {n} {m : 'I_n} : 'I_m -> 'I_n := @widen_ord _ n (ltnW (ltn_ord m)).
-
 Notation "t '!_' i" := (tnth t i) (at level 10). (* lv9: no parenthesis; so lv10*)
 
 Hypothesis xan : xas!_(ord_max) = false.
@@ -382,50 +355,48 @@ Hypothesis xbn : xbs!_(ord_max) = false.
 Hypothesis sps_is_sp : forall i, is_scalar_product (sps !_ i).
 
 (*acc: carry-bit Alice, Bob will receive; results Alice, bob will receive*)
-Definition folder (acc: list ((B * B) * (B * B))) (i: 'I_n):
-  list ((B * B) * (B * B)) :=
-	let '((ca, cb), _) := head ((0,0),(0,0)) acc in
-	let sp := tnth sps i in
-	let i_ := W i in
-	let i' := S i in
-	let xa := xas !_ i_ in
-	let xa' := xas !_ i' in
-	let xb := xbs !_ i_ in
-	let xb' := xbs !_ i' in
+Definition folder i (acc: i.+1.-tuple ((B * B) * (B * B))) :
+  i.+2.-tuple ((B * B) * (B * B)) :=
+	let '((ca, cb), _) := acc !_ 0 in
+	let sp := nth (scalar_product nil nil 0 0 0 : SMC B) sps i in
+	let xa := xas `_ i in
+	let xa' := xas `_ i.+1 in
+	let xb := xbs `_ i in
+	let xb' := xbs `_ i.+1 in
 	step2_2 (step2_1 sp (ca, cb) (xa, xb)) (ca, cb) (xa, xb) (xa', xb') :: acc.
 
 (* xs[0] = lowest bit *)
 Definition zn_to_z2 :=
-	let init := [:: ((0, 0), (tnth xas 0, tnth xbs 0))] in  (* For party A,B: c0=0, y0=x0 *)
-	foldl folder init (ord_tuple n). 
+	let init := [tuple ((0, 0), (xas`_0, xbs`_0))] in  (* For party A,B: c0=0, y0=x0 *)
+	iteri_dep folder init n.
+Check zn_to_z2.
 
 Definition carry_correct (ca cb ca' cb' xa xb : B) :=
   ((ca + cb)%R * 2 + (xa + ca' + (xb + cb'))%R = (ca' + cb')%R + (xa + xb))%N.
 
 (* Here we expect `i < n+1` *)
-Definition decimal_eq (cas cbs yas ybs : list B) (i: nat) :=
+Definition decimal_eq i (cas cbs yas ybs : seq B) :=
   ((cas `_ i + cbs `_ i)%R * 2 ^ i +
    \sum_(j < i) (yas `_ j + ybs `_ j)%R * 2 ^ j == 
      \sum_(j < i) ((xas `_ j)%R + (xbs `_ j)%R) * 2 ^ j)%N.
 
 Lemma decimal_eq0:
-  decimal_eq [:: 0] [:: 0] [:: xas`_0] [:: xbs`_0] 0.
+  decimal_eq 0 [:: 0] [:: 0] [:: xas`_0] [:: xbs`_0].
 Proof. by rewrite /decimal_eq /= !big_ord0 addn0. Qed.
 
 (* Here we expect `i < n+1` *)
-Definition acc_correct (acc: list ((B * B) * (B * B))) (i: nat) :=
+Definition acc_correct i (acc: i.+1.-tuple ((B * B) * (B * B))) :=
   let acc := rev acc in
   let cas := unzip1 (unzip1 acc) in
   let cbs := unzip2 (unzip1 acc) in
   let yas := unzip1 (unzip2 acc) in
   let ybs := unzip2 (unzip2 acc) in
-  [/\ size acc = i.+1,
+  [/\
     yas`_i = xas`_i + cas`_i,
     ybs`_i = xbs`_i + cbs`_i
-    & decimal_eq cas cbs yas ybs i].
+    & decimal_eq i cas cbs yas ybs].
 
-
-Lemma carry_correctP  cai_ cbi_ tai_ tbi_ (i : 'I_n) :
+Lemma carry_correctP  cai_ cbi_ tai_ tbi_ i :
   tai_ + tbi_ = [:: cai_; xas`_i; xas`_i] `* [:: xbs`_i; cbi_; xbs`_i] ->
   carry_correct (cai_ * xas`_i + tai_) (cbi_ * xbs`_i + tbi_)
                 cai_ cbi_ xas`_i xbs`_i.
@@ -437,35 +408,46 @@ rewrite /dotproduct /=. (* calc dotproduct*)
 by move: cai_ (xas`_i) (xbs`_i) cbi_ => [] [] [] [].
 Qed.
 
-Lemma folder_correctP acc i:
-  acc_correct acc (W i) -> acc_correct (folder acc i) (S i).
+Lemma folder_correctP i (acc : i.+1.-tuple _) :
+  (i < n.+1 -> acc_correct acc)%N ->
+  (i.+1 < n.+1 -> acc_correct (folder acc))%N.
 Proof.
-move=> []. 
-move Hacc: acc => [ |[[cai cbi] [ya yb]] acc'] //.
-rewrite -Hacc size_rev.
-move=> /= Hsz Hyas Hybs Hdec.
-rewrite /folder {1}Hacc /= !(tnth_nth 0) /= bump0.
-have := step2_1_correctP (cai, cbi) (xas`_i, xbs`_i) (sps_is_sp i).
+move=> Hacc.
+rewrite ltnS => Hi.
+move/(_ (ltnW Hi)) in Hacc.
+case: Hacc.
+case: acc => acc Hsz /=.
+move Hacc: acc Hsz => [ |[[cai cbi] [ya yb]] acc'] // Hsz.
+rewrite -{-9}Hacc /= => Hyas Hybs Hdec.
+rewrite /folder /= [in nth _ _ _](_ : i = Ordinal Hi) // -tnth_nth.
+have := step2_1_correctP (cai, cbi) (xas`_i, xbs`_i) (sps_is_sp (Ordinal Hi)).
 rewrite /step2_1_correct /=. 
 case: step2_1 => tai tbi /= Htai_tbi.
-rewrite /acc_correct size_rev /= Hsz.
+rewrite /acc_correct /=.
 rewrite !(unzip1_rev,unzip2_rev) in Hyas Hybs Hdec *.
 rewrite /step2_2 /=.
-rewrite !rev_cons !nth_rcons !size_rev !size_map Hsz /= ltnn eqxx.
+rewrite /= eqSS in Hsz.
+move/eqP in Hsz.
+rewrite !rev_cons !nth_rcons !size_rcons !size_rev !size_map Hsz /=.
+rewrite ltnn eqxx.
 split => //.
 rewrite /decimal_eq 2!big_ord_recr /=.
-rewrite !nth_rcons ?(size_rev,size_map,Hsz) ltnn eqxx ltnSn.
+rewrite !nth_rcons ?(size_rcons,size_rev,size_map,Hsz) !ltnn !eqxx ltnSn.
 move/eqP: Hdec => /= <-.
 apply/eqP.
-under eq_bigr do rewrite !(nth_rcons,size_rev,size_map,Hsz) ltnW ?ltnS //.
+under eq_bigr do
+  rewrite !(nth_rcons,size_rcons,size_rev,size_map,Hsz) ltn_ord ltnW ?ltnS //.
 rewrite addnA addnAC [RHS]addnAC.
 congr addn.
-rewrite !nth_rev ?(size_rev,size_map,Hsz) // subnn Hacc /=.
-rewrite expnS mulnA -!mulnDl -(carry_correctP Htai_tbi).
-congr ((_ + _) * _)%N.
-move: Hsz Hyas Hybs; rewrite Hacc /=; clear => /= -[Hsz].
-rewrite !rev_cons !nth_rcons !size_rev !size_map Hsz /= ltnn eqxx.
-by move => -> ->.
+  rewrite !nth_rev ?(size_rev,size_map,Hsz) Hacc /= Hsz ?subnn //.
+  rewrite expnS mulnA -!mulnDl -(carry_correctP Htai_tbi).
+  congr ((_ + _) * _)%N.
+  move: Hsz Hyas Hybs; rewrite Hacc /=; clear => /= -[Hsz].
+  rewrite !rev_cons !nth_rcons !size_rev !size_map Hsz /= ltnn eqxx.
+  by move => -> ->.
+apply eq_bigr => j.
+rewrite Hacc /=.
+by rewrite !rev_cons !nth_rcons ?(size_rev,size_map,Hsz) /= ltn_ord.
 Qed.
 
 Lemma zn_to_z2_correctP :
@@ -474,11 +456,11 @@ Lemma zn_to_z2_correctP :
   let cbs := unzip2 (unzip1 acc) in
   let yas := unzip1 (unzip2 acc) in
   let ybs := unzip2 (unzip2 acc) in
-  decimal_eq cas cbs yas ybs n.
+  decimal_eq n cas cbs yas ybs.
 Proof.
-have[|_//]:= foldl_ord_tuple folder_correctP (init:=[:: ((0, 0), (tnth xas 0, tnth xbs 0))]).
-rewrite /acc_correct /= ?size_tuple //= !(tnth_nth 0) !addr0.
-by rewrite decimal_eq0.
+have [] // :=
+  iteri_dep_ind (init:=[tuple ((0, 0), (xas`_0, xbs`_0))]) folder_correctP _ n.
+by rewrite /acc_correct /= !addr0 decimal_eq0.
 Qed.
 
 End zn_to_z2_ntuple.
