@@ -412,42 +412,35 @@ Lemma folder_correctP i (acc : i.+1.-tuple _) :
   (i < n.+1 -> acc_correct acc)%N ->
   (i.+1 < n.+1 -> acc_correct (folder acc))%N.
 Proof.
-move=> Hacc.
-rewrite ltnS => Hi.
+rewrite (ltnS i.+1) => Hacc Hi.
 move/(_ (ltnW Hi)) in Hacc.
-case: Hacc.
-case: acc => acc Hsz /=.
+case: acc Hacc => acc Hsz [] /=.
 move Hacc: acc Hsz => [ |[[cai cbi] [ya yb]] acc'] // Hsz.
 rewrite -{-9}Hacc /= => Hyas Hybs Hdec.
 rewrite /folder /= [in nth _ _ _](_ : i = Ordinal Hi) // -tnth_nth.
 have := step2_1_correctP (cai, cbi) (xas`_i, xbs`_i) (sps_is_sp (Ordinal Hi)).
 rewrite /step2_1_correct /=. 
 case: step2_1 => tai tbi /= Htai_tbi.
-rewrite /acc_correct /=.
+rewrite /acc_correct /= -Hacc.
 rewrite !(unzip1_rev,unzip2_rev) in Hyas Hybs Hdec *.
 rewrite /step2_2 /=.
-rewrite /= eqSS in Hsz.
+rewrite -Hacc in Hsz.
 move/eqP in Hsz.
-rewrite !rev_cons !nth_rcons !size_rcons !size_rev !size_map Hsz /=.
-rewrite ltnn eqxx.
+rewrite !rev_cons !nth_rcons !size_rev !size_map Hsz /= ltnn eqxx.
 split => //.
 rewrite /decimal_eq 2!big_ord_recr /=.
-rewrite !nth_rcons ?(size_rcons,size_rev,size_map,Hsz) !ltnn !eqxx ltnSn.
+rewrite !nth_rcons ?(size_rev,size_map,Hsz) ltnn eqxx ltnSn.
 move/eqP: Hdec => /= <-.
 apply/eqP.
-under eq_bigr do
-  rewrite !(nth_rcons,size_rcons,size_rev,size_map,Hsz) ltn_ord ltnW ?ltnS //.
+under eq_bigr do rewrite !(nth_rcons,size_rev,size_map,Hsz) ltnW ?ltnS //.
 rewrite addnA addnAC [RHS]addnAC.
 congr addn.
-  rewrite !nth_rev ?(size_rev,size_map,Hsz) Hacc /= Hsz ?subnn //.
-  rewrite expnS mulnA -!mulnDl -(carry_correctP Htai_tbi).
-  congr ((_ + _) * _)%N.
-  move: Hsz Hyas Hybs; rewrite Hacc /=; clear => /= -[Hsz].
-  rewrite !rev_cons !nth_rcons !size_rev !size_map Hsz /= ltnn eqxx.
-  by move => -> ->.
-apply eq_bigr => j.
-rewrite Hacc /=.
-by rewrite !rev_cons !nth_rcons ?(size_rev,size_map,Hsz) /= ltn_ord.
+rewrite !nth_rev ?(size_rev,size_map,Hsz) // subnn Hacc /=.
+rewrite expnS mulnA -!mulnDl -(carry_correctP Htai_tbi).
+congr ((_ + _) * _)%N.
+move: Hsz Hyas Hybs; rewrite Hacc /=; clear => /= -[Hsz].
+rewrite !rev_cons !nth_rcons !size_rev !size_map Hsz /= ltnn eqxx.
+by move => -> ->.
 Qed.
 
 Lemma zn_to_z2_correctP :
