@@ -1,5 +1,7 @@
 -arg -w -arg -notation-overridden
 
 smc_scalar_product.v
+monae_lib.v
+hierarchy.v
 
 -R . smccoq
