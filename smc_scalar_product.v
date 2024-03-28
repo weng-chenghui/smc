@@ -245,6 +245,12 @@ Definition is_scalar_product (sp: SMC) :=
   forall(Xa Xb: list R),
   (sp Xa Xb).1.1 + (sp Xa Xb).1.2 = Xa `* Xb.
 
+Definition is_scalar_product_owned (sp: SMC) :=
+  forall(Xa Xb: list R),
+  (sp Xa Xb).1.1 + (sp Xa Xb).1.2 = Xa `* Xb ->
+  is_alice_owned (sp Xa Xb).2.1 ->
+  is_bob_owned (sp Xa Xb).2.2.
+
 End smc_scalar_product.
 
 Eval compute in (demo_Alice3_Bob2 [ringType of int]).
@@ -303,15 +309,16 @@ End smc_scalar_product_facts.
 Section zn_to_z2.
 
 Let B := bool.
+Variable R:comRingType.
 
 Definition step2_1 (sp: SMC B) (ci xi: (B * B)) : (B * B) :=
   (sp [:: ci.1; xi.1; xi.1] [:: xi.2; ci.2; xi.2]).1.
 
 Definition step2_1_correct (sp: SMC B) (ci xi: B * B) :=
-    let alice_input := [:: ci.1; xi.1; xi.1] in
-    let bob_input := [:: xi.2; ci.2; xi.2] in
+    let bitsA := [:: ci.1; xi.1; xi.1] in
+    let bitsB := [:: xi.2; ci.2; xi.2] in
     let t := step2_1 sp ci xi in
-    t.1 + t.2 = alice_input `* bob_input .
+    t.1 + t.2 = bitsA `* bitsB.
 
 Lemma step2_1_correctP (sp: SMC B) (ci xi: B * B) :
 	is_scalar_product sp ->
@@ -458,3 +465,24 @@ Qed.
 
 End zn_to_z2_ntuple.
 
+Section zn_to_z2_party_facts.
+
+Let B:= bool.
+Variable R: comRingType.
+
+Definition step2_1_alice_correct (Ra Rb: seq R) (ra rb yb: R) (ci xi: B * B) :=
+    let bitsA := [:: ci.1%:R; xi.1%:R; xi.1%:R] in
+    let bitsB := [:: xi.2%:R; ci.2%:R; xi.2%:R] in
+    let bitsA' := bitsA `+ Ra in
+    let bitsB' := bitsB `+ Rb in
+    let ao := (scalar_product Ra Rb ra rb yb bitsA bitsB).2.1 in
+    recv_t ao = bitsB `* bitsA' + rb - yb ->
+    ya ao = recv_t ao - (Ra `* bitsB') + ra.
+
+Lemma step2_1_alice_correctP (Ra Rb: seq R) (ra yb: R) (ci xi: B * B) :
+  let rb := commodity_rb Ra Rb ra in
+  step2_1_alice_correct Ra Rb ra rb yb ci xi.
+Proof.
+Abort.
+
+End zn_to_z2_party_facts.
