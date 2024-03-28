@@ -470,6 +470,11 @@ Section zn_to_z2_party_facts.
 Let B:= bool.
 Variable R: comRingType.
 
+(*
+    Each c_i and y_i bit in zn_to_z2, are generated from Ra_i, Rb_i, ra_i, rb_i, yb_i.
+    If we use `SMC B` without changing it, random variables and random vectors are hidden. 
+*)
+
 Definition step2_1_alice_correct (Ra Rb: seq R) (ra rb yb: R) (ci xi: B * B) :=
     let bitsA := [:: ci.1%:R; xi.1%:R; xi.1%:R] in
     let bitsB := [:: xi.2%:R; ci.2%:R; xi.2%:R] in
