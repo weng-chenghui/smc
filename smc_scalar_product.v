@@ -471,7 +471,7 @@ Let B:= bool.
 Variable R: comRingType.
 
 (*
-    Each c_i and y_i bit in zn_to_z2, are generated from Ra_i, Rb_i, ra_i, rb_i, yb_i.
+    Each c_i.+1 and y_i.+1 bit in zn_to_z2, are generated from Ra_i, Rb_i, ra_i, rb_i, yb_i.
     If we use `SMC B` without changing it, random variables and random vectors are hidden. 
 *)
 
