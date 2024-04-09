@@ -1,5 +1,7 @@
 -arg -w -arg -notation-overridden
+-arg -w -arg -ambiguous-paths
 
+mathcomp_extra.v
 smc_scalar_product.v
 
 -R . smccoq
