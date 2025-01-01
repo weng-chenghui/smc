@@ -253,7 +253,6 @@ Definition folder i (acc: i.+1.-tuple ((B * B) * (B * B))) :
 Definition zn_to_z2 :=
 	let init := [tuple ((0, 0), (xas`_0, xbs`_0))] in  (* For party A,B: c0=0, y0=x0 *)
 	iteri_dep folder init n.
-Check zn_to_z2.
 
 Definition carry_correct (ca cb ca' cb' xa xb : B) :=
   ((ca + cb)%R * 2 + (xa + ca' + (xb + cb'))%R = (ca' + cb')%R + (xa + xb))%N.

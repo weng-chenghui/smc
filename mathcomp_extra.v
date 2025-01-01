@@ -121,6 +121,7 @@ End seq_extra.
 
 
 Section iteri_dep.
+
 Variables (A : nat -> Type) (f : forall i, A i -> A i.+1) (init : A 0).
 Fixpoint iteri_dep n : A n := if n is i.+1 then f (iteri_dep i) else init.
 
