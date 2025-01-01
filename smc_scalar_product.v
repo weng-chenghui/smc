@@ -268,13 +268,12 @@ Lemma decimal_eq0:
   decimal_eq 0 [:: 0] [:: 0] [:: xas`_0] [:: xbs`_0].
 Proof. by rewrite /decimal_eq /= !big_ord0 addn0. Qed.
 
+Definition split4 i (acc: i.+1.-tuple ((B * B) * (B * B))) :=
+  (unzip1 (unzip1 acc), unzip2 (unzip1 acc), unzip1 (unzip2 acc), unzip2 (unzip2 acc)).
+
 (* Here we expect `i < n+1` *)
 Definition acc_correct i (acc: i.+1.-tuple ((B * B) * (B * B))) :=
-  let acc := rev acc in
-  let cas := unzip1 (unzip1 acc) in
-  let cbs := unzip2 (unzip1 acc) in
-  let yas := unzip1 (unzip2 acc) in
-  let ybs := unzip2 (unzip2 acc) in
+  let '(cas, cbs, yas, ybs) := split4 (rev acc) in
   [/\
     yas`_i = xas`_i + cas`_i,
     ybs`_i = xbs`_i + cbs`_i
@@ -327,11 +326,7 @@ by move => -> ->.
 Qed.
 
 Lemma zn_to_z2_correctP :
-  let acc := rev zn_to_z2 in
-  let cas := unzip1 (unzip1 acc) in
-  let cbs := unzip2 (unzip1 acc) in
-  let yas := unzip1 (unzip2 acc) in
-  let ybs := unzip2 (unzip2 acc) in
+  let '(cas, cbs, yas, ybs) := split4 (rev zn_to_z2) in
   decimal_eq n cas cbs yas ybs.
 Proof.
 have [] // :=
