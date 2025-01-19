@@ -3,7 +3,6 @@ From mathcomp.algebra Require Import all_algebra.
 From mathcomp.algebra_tactics Require Import ring.
 Require Import mathcomp_extra.
 
-
 (*  
     Shen, Chih-Hao, Justin, Zhan, Tsan-Sheng, Hsu, Churn-Jung, Liau, and Da-Wei, Wang. "Scalar-product based secure two-party computation." . In 2008 IEEE International Conference on Granular Computing (pp. 556-561).2008.
 
@@ -25,7 +24,7 @@ Reserved Notation "la '`+' lb" (at level 50, format "'[' la  `+  lb ']'").
 Local Open Scope ring_scope.
 
 Section def.
-
+  
 Definition SMC (T : Type) := list T -> list T -> (T * T).
 
 Definition dotproduct (R : semiRingType) (la lb: list R) : R :=
@@ -79,9 +78,6 @@ Variable R:ringType.
 
 Definition is_scalar_product (sp: SMC R) :=
   forall Xa Xb, (sp Xa Xb).1 + (sp Xa Xb).2 = Xa `* Xb.
-
-About scp.is_scalar_product.
-About scp.scalar_product.
 
 End smc_scalar_product.
 

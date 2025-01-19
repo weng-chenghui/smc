@@ -31,6 +31,7 @@ Reserved Notation "u *d w" (at level 40).
 Reserved Notation "u \*d w" (at level 40).
 
 Section interp.
+
 Variable data : Type.
 Inductive proc : Type :=
   | Init : data -> proc -> proc
@@ -40,7 +41,7 @@ Inductive proc : Type :=
   | Finish : proc
   | Fail : proc.
 
-Definition step (A : Type) (ps : seq proc) (trace : seq data)
+Definition scalar_product_step (A : Type) (ps : seq proc) (trace : seq data)
   (yes no : proc * seq data -> A) (i : nat) : A :=
   let ps := nth Fail ps in
   let p := ps i in
@@ -62,15 +63,18 @@ Definition step (A : Type) (ps : seq proc) (trace : seq data)
       nop
   end.
 
-Fixpoint interp h (ps : seq proc) (traces : seq (seq data)) :=
+Let stepT := forall A : Type, seq proc -> seq data ->
+  (proc * seq data -> A) -> (proc * seq data -> A) -> nat -> A.
+
+Fixpoint interp h (step : stepT) (ps : seq proc) (traces : seq (seq data)) :=
   if h is h.+1 then
-    if has (fun i => step ps [::] (fun=>true) (fun=>false) i)
+    if has (fun i => step bool ps [::] (fun=>true) (fun=>false) i)
         (iota 0 (size ps)) then
-      let ps_trs' := [seq step ps (nth [::] traces i) idfun idfun i
+      let ps_trs' := [seq step ((proc * seq data)%type) ps (nth [::] traces i) idfun idfun i
                      | i <- iota 0 (size ps)] in
       let ps' := unzip1 ps_trs' in
       let trs' := unzip2 ps_trs' in
-        interp h ps' trs'
+        interp h step ps' trs'
     else (ps, traces)
   else (ps, traces).
 End interp.
@@ -130,7 +134,7 @@ Definition pbob (xb : VX) (yb : TX) : proc data :=
 
 Variables (sa sb: VX) (ra yb: TX) (xa xb: VX).
 Definition smc_scalar_product h :=
-  (interp h [:: palice xa; pbob xb yb; pcoserv sa sb ra] [::[::];[::];[::]]).
+  (interp h (scalar_product_step (data:=data)) [:: palice xa; pbob xb yb; pcoserv sa sb ra] [::[::];[::];[::]]).
 
 Goal (smc_scalar_product 11).2 = ([::]).
 cbv -[GRing.add GRing.opp GRing.Ring.sort (*Equality.eqtype_hasDecEq_mixin*) ].
