@@ -67,7 +67,7 @@ Let aresult (tr : smc_scalar_product_alice_tracesT VX) (f : TX -> TX) :=
     let '(ya) := if tr is Some (inl ya, _, _, _, _, _)
                 then ya else 0 in f ya.
 
-Let bresult (tr : smc_scalar_product_alice_tracesT VX) (f : TX -> TX) :=
+Let bresult (tr : smc_scalar_product_bob_tracesT VX) (f : TX -> TX) :=
     let '(yb) := if tr is Some (inl yb, _, _, _, _, _)
                 then yb else 0 in f yb.
 
@@ -82,12 +82,17 @@ Definition pstep (A : Type) (pg : seq (prog _ _)) (rs : seq (VX * VX * TX * TX)%
   let '(sa, sb, ra, yb) := nth (0, 0, 0, 0) rs i in
   match p with
   | ScalarProduct id1 id2 x1 f1 =>
-      if pg id2 is ScalarProduct id2 id1 x2 f2 then
-        if id1 is alice then 
-          yes (f1 (aresult (Option.bind fst (scalar_product sa sb ra yb x1 x2))), trace)
-        else
-          yes (f2 (bresult (Option.bind snd (scalar_product sa sb ra yb x2 x1))), trace)
-      else nop
+      match pg id2 with
+      |  ScalarProduct id2 id1 x2 f2 =>
+           if (id1, id2) == (alice, bob) then
+                yes (f1 (aresult (Option.bind fst (scalar_product sa sb ra yb x1 x2))), trace)
+           else
+             if (id1, id2) == (bob, alice) then
+                yes (f2 (bresult (Option.bind snd (scalar_product sa sb ra yb x1 x2))), trace)
+             else
+               nop
+      | _ => nop
+      end
   | Init d next =>
       yes (next, trace)
   | Ret d =>
