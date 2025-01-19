@@ -75,7 +75,7 @@ Variables (T TX TY: finType)(TX': finZmodType).
 Variable P : R.-fdist T.
 Variable n : nat.
 
-Lemma pr_eq_diag U (X : {RV P -> U}) (x : U) :
+Lemma pr_eq_diag (U : eqType) (X : {RV P -> U}) (x : U) :
   `Pr[ [% X, X] = (x, x) ] = `Pr[ X = x ].
 Proof.
 by rewrite !pr_eqE /Pr; apply: eq_bigl=> a; rewrite !inE xpair_eqE andbb.
@@ -86,7 +86,7 @@ by rewrite !pr_eqE /Pr; apply: eq_bigl=> a; rewrite !inE xpair_eqE andbb.
 *)
 Qed.
 
-Lemma cpr_eq_id U (X : {RV P -> U}) (x : U) :
+Lemma cpr_eq_id (U : eqType) (X : {RV P -> U}) (x : U) :
   `Pr[ X = x ] != 0 -> `Pr[ X = x | X = x ] = 1.
 Proof. by move=> ?; rewrite cpr_eqE pr_eq_diag divRR. Qed.
 
