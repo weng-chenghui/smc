@@ -5,7 +5,7 @@
 -arg -w -arg -notation-incompatible-format
 
 mathcomp_extra.v
-smc_scalar_product.v
+znto.v
 scalarproduct/smc_proba.v
 scalarproduct/smc_entropy.v
 scalarproduct/smc_tactics.v

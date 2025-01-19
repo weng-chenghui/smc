@@ -15,6 +15,9 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 Import GRing.Theory Num.Theory.
+Require Import scalarproduct.smc_interpreter.
+Module scp := smc_interpreter.
+
 
 Reserved Notation "la '`*' lb" (at level 40, format "'[' la  `*  lb ']'").
 Reserved Notation "la '`+' lb" (at level 50, format "'[' la  `+  lb ']'").
@@ -77,16 +80,8 @@ Variable R:ringType.
 Definition is_scalar_product (sp: SMC R) :=
   forall Xa Xb, (sp Xa Xb).1 + (sp Xa Xb).2 = Xa `* Xb.
 
-Definition commodity_rb  (Ra Rb: list R) (ra: R): R :=
-       (Ra `* Rb) - ra.
-
-Definition scalar_product (Ra Rb: list R) (ra rb yb: R) : SMC R :=
-  fun Xa Xb =>
-    let X'a := Xa `+ Ra in
-    let X'b := Xb `+ Rb in
-    let t := (Xb `* X'a) + rb - yb in
-    let ya := t - (Ra `* X'b) + ra in
-    (ya, yb).
+About scp.is_scalar_product.
+About scp.scalar_product.
 
 End smc_scalar_product.
 
@@ -136,12 +131,13 @@ Notation "t '!_' i" := (tnth t i) (at level 10). (* lv9: no parenthesis; so lv10
 Hypothesis xan : xas!_(ord_max) = false.
 Hypothesis xbn : xbs!_(ord_max) = false.
 Hypothesis sps_is_sp : forall i, is_scalar_product (sps !_ i).
+Hypothesis nop_sp : SMC B.
 
 (*acc: carry-bit Alice, Bob will receive; results Alice, bob will receive*)
 Definition folder i (acc: i.+1.-tuple ((B * B) * (B * B))) :
   i.+2.-tuple ((B * B) * (B * B)) :=
 	let '((ca, cb), _) := acc !_ 0 in
-	let sp := nth (scalar_product nil nil 0 0 0 : SMC B) sps i in
+	let sp := nth nop_sp sps i in
 	let xa := xas `_ i in
 	let xa' := xas `_ i.+1 in
 	let xb := xbs `_ i in
