@@ -1,7 +1,14 @@
+-arg -w -arg -projection-no-head-constant
+-arg -w -arg -redundant-canonical-projection
 -arg -w -arg -notation-overridden
 -arg -w -arg -ambiguous-paths
+-arg -w -arg -notation-incompatible-format
 
 mathcomp_extra.v
 smc_scalar_product.v
+scalarproduct/smc_proba.v
+scalarproduct/smc_entropy.v
+scalarproduct/smc_tactics.v
+scalarproduct/smc_interpreter.v
 
 -R . smccoq
