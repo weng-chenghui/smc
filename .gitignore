@@ -17,6 +17,17 @@ doc/*.html
 *.vok
 *.vos
 memo*.v
+.DS_Store
+.AppleDouble
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+*~
+\#*\#
 
+coqdoc.sty
+Makefile.conf
 Makefile.coq
 Makefile.coq.conf
