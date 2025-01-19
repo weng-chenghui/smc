@@ -3,6 +3,13 @@ From mathcomp.algebra Require Import all_algebra.
 From mathcomp.algebra_tactics Require Import ring.
 Require Import mathcomp_extra.
 
+
+(*  
+    Shen, Chih-Hao, Justin, Zhan, Tsan-Sheng, Hsu, Churn-Jung, Liau, and Da-Wei, Wang. "Scalar-product based secure two-party computation." . In 2008 IEEE International Conference on Granular Computing (pp. 556-561).2008.
+
+    http://dx.doi.org/10.1109/GRC.2008.4664775
+*)
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -14,46 +21,9 @@ Reserved Notation "la '`+' lb" (at level 50, format "'[' la  `+  lb ']'").
 
 Local Open Scope ring_scope.
 
-
-(*
-    Du, Wenliang, and Zhĳun, Zhan. "A practical approach to solve Secure Multi-party Computation problems." . In Proceedings of the 2002 Workshop on New Security Paradigms (pp. 127–135). Association for Computing Machinery, 2002.
-
-    https://doi.org/10.1145/844102.844125
-*)
-
-Section datatypes.
-Variable T : Type.
-
-(* Owned: genereated in or received by Alice *)
-Record alice_owned :=
-  AliceOwned {
-    Ra  : seq T;
-    Xa  : seq T;
-    X'b : seq T;
-    ra  : T;
-    recv_t   : T;
-    ya  : T;
-  }.
-
-(* Owned: genereated in or received by Bob *)
-Record bob_owned :=
-  BobOwned {
-    Rb  : seq T;
-    Xb  : seq T;
-    X'a : seq T;
-    rb  : T;
-    send_t : T;
-    yb  : T;
-  }.
-
-Definition SMC := list T -> list T -> (T * T * (alice_owned * bob_owned)).
-
-End datatypes.
-
-
-Section linear_algebra.
-
 Section def.
+
+Definition SMC (T : Type) := list T -> list T -> (T * T).
 
 Definition dotproduct (R : semiRingType) (la lb: list R) : R :=
 	foldl +%R 0 (zipWith *%R la lb).
@@ -74,33 +44,8 @@ End def.
 Local Notation "la '`*' lb" := (dotproduct la lb).
 Local Notation "la '`+' lb" := (add la lb).
 
-Lemma dot_productC (R : comSemiRingType) (aa bb : list R) : aa `* bb = bb `* aa.
-Proof.
-rewrite /dotproduct.
-elim: aa bb 0 => [| a aa IH] [| b bb] z //=.
-by rewrite mulrC.
-Qed.
+Section linear_algebra.
 
-Lemma dot_productE (R : semiRingType) (aa bb: list R) (z: R) :
-  z + aa `* bb = foldl +%R z (zipWith *%R aa bb).
-Proof.
-rewrite /dotproduct -[in RHS](addr0 z).
-elim: aa bb z 0=> [| a aa IH] [| b bb] z z2 //=.
-by rewrite IH addrA.
-Qed.  
-
-Lemma dot_productDr (R : semiRingType) (aa bb cc : list R) :
-  aa `* (bb `+ cc) = aa `* bb + aa `* cc.
-Proof.
-rewrite /dotproduct.
-set z:={1 2}0.
-rewrite -{1}(addr0 z).
-elim: aa bb cc z 0 => [| a aa IH] [| b bb] [|c cc] z z2 //=;
-  rewrite ?IH -!dot_productE //=.
-- by rewrite !addrA.
-- by rewrite [RHS](addrC _ z2) !addrA (addrC z).
-- by rewrite mulrDr !addrA !(addrAC _ z2) !(addrAC _ (a*b)).
-Qed.
 
 Lemma add_cat (R : nmodType) (s1 s2 t1 t2 : seq R) :
   size s1 = size t1 ->
@@ -129,18 +74,11 @@ Section smc_scalar_product.
 
 Variable R:ringType.
 
+Definition is_scalar_product (sp: SMC R) :=
+  forall Xa Xb, (sp Xa Xb).1 + (sp Xa Xb).2 = Xa `* Xb.
+
 Definition commodity_rb  (Ra Rb: list R) (ra: R): R :=
-	(Ra `* Rb) - ra.
-
-(* Put this definition in the record will make every time we have the record,
-   we need to provide the hypothesis,
-   so temporarily separate it from the record.
- *)
-Definition is_alice_owned (ao: alice_owned R) :=
-  ya ao = recv_t ao - (Ra ao `* X'b ao) + ra ao.
-
-Definition is_bob_owned (bo: bob_owned R) :=
-  send_t bo = (Xb bo `* X'a bo) + rb bo - yb bo.
+       (Ra `* Rb) - ra.
 
 Definition scalar_product (Ra Rb: list R) (ra rb yb: R) : SMC R :=
   fun Xa Xb =>
@@ -148,49 +86,10 @@ Definition scalar_product (Ra Rb: list R) (ra rb yb: R) : SMC R :=
     let X'b := Xb `+ Rb in
     let t := (Xb `* X'a) + rb - yb in
     let ya := t - (Ra `* X'b) + ra in
-    (ya, yb, (AliceOwned Ra Xa X'b ra t ya, BobOwned Rb Xb X'a rb t yb)).
-
-Definition demo_Alice3_Bob2 : (R * R) :=
-	let Ra := [:: 9 ] in
-	let Rb := [:: 8 ] in
-	let ra := 13 in
-	let rb := commodity_rb Ra Rb ra in	(* rb =  Ra . Rb - ra *)
-	let Xa := [:: 3 ] in
-	let Xb := [:: 2 ] in
-	let yb := 66 in
-	(scalar_product Ra Rb ra rb yb Xa Xb).1.
-
-Definition is_scalar_product (sp: SMC R) :=
-  forall Xa Xb, (sp Xa Xb).1.1 + (sp Xa Xb).1.2 = Xa `* Xb.
+    (ya, yb).
 
 End smc_scalar_product.
 
-Eval compute in (demo_Alice3_Bob2 int).
-
-
-Section smc_scalar_product_facts.
-Variable R:comRingType.
-
-Lemma scalar_product_correct (Ra Rb : list R) (ra yb : R) :
-  let rb := commodity_rb Ra Rb ra in
-  is_scalar_product (scalar_product Ra Rb ra rb yb).
-Proof.
-move=> /= Xa Xb.
-rewrite  /commodity_rb /is_scalar_product /=.
-rewrite !dot_productDr (dot_productC Xb Xa) (dot_productC Xb Ra).
-(* should be just "ring." *)
-apply/eqP; rewrite eq_sym -3!subr_eq opprK !addrA.
-by rewrite !(addrAC _ (-yb)) !(addrAC _ (-ra)).
-Qed.
-
-End smc_scalar_product_facts.
-
-
-(*  
-    Shen, Chih-Hao, Justin, Zhan, Tsan-Sheng, Hsu, Churn-Jung, Liau, and Da-Wei, Wang. "Scalar-product based secure two-party computation." . In 2008 IEEE International Conference on Granular Computing (pp. 556-561).2008.
-
-    http://dx.doi.org/10.1109/GRC.2008.4664775
-*)
 Section zn_to_z2.
 Variable R : ringType.
 
@@ -200,7 +99,7 @@ Variables (sp : SMC R) (ci xi : R * R).
 Local Notation alice_input := [:: ci.1; xi.1; xi.1].
 Local Notation bob_input := [:: xi.2; ci.2; xi.2].
 
-Definition step2_1 : (R * R) := (sp alice_input bob_input).1.
+Definition step2_1 : (R * R) := (sp alice_input bob_input).
 
 Definition step2_1_correct :
   is_scalar_product sp -> step2_1.1 + step2_1.2 = alice_input `* bob_input.
