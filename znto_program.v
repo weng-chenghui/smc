@@ -32,74 +32,81 @@ Local Open Scope chap2_scope.
 Local Open Scope entropy_scope.
 Local Open Scope vec_ext_scope.
 
-Section znto_def.
+Section smc_def.
 
-Variable (TX : Type)(VX : Type).
-Inductive prog : Type :=
-  | Init : TX -> prog -> prog
-  | ScalarProduct : nat -> nat -> VX -> (TX -> prog) -> prog
-  | Ret : TX -> prog
-  | Finish : prog
-  | Fail : prog.
+Variable data : Type.
+Inductive proc : Type :=
+  | Init : data -> proc -> proc
+  | ScalarProduct : nat -> nat -> data -> (data -> proc) -> proc
+  | Finish : proc
+  | Fail : proc.
 
-End znto_def.
+Definition SMC := data -> data -> data.
 
-Arguments Finish {TX}{VX}.
-Arguments Fail {TX}{VX}.
-Arguments Ret {TX}{VX}.
-
-Section znto_prog.
-  
-Variable n m : nat.
-Let TX := [the finComRingType of 'I_m.+2].
-Let VX := 'rV[TX]_n.
-
-Definition pgalice (x : VX) :=
-  Init x (
-  ScalarProduct alice bob x (fun y =>
-  ScalarProduct alice bob (x + x) (fun z => (* Don't know how to make a 'rV[TX]_n like [:: y; y+y ] *)
-  Ret z))).
-
-Let scalar_product sa sb ra yb xa xb :=
-      traces (@smc_scalar_product TX VX smc_entropy_proofs.dotproduct sa sb ra yb xa xb 11).2.
-
-Let aresult (tr : smc_scalar_product_alice_tracesT VX) (f : TX -> TX) :=
-    let '(ya) := if tr is Some (inl ya, _, _, _, _, _)
-                then ya else 0 in f ya.
-
-Let bresult (tr : smc_scalar_product_bob_tracesT VX) (f : TX -> TX) :=
-    let '(yb) := if tr is Some (inl yb, _, _, _, _, _)
-                then yb else 0 in f yb.
-
-Let pgtraceT := (VX * VX * TX * TX)%type.
-
-Definition pstep (A : Type) (pg : seq (prog _ _)) (rs : seq (VX * VX * TX * TX)%type)
-  (trace : seq pgtraceT)
-  (yes no : ((prog _ _ * seq pgtraceT)%type -> A)) (i : nat) : A :=
-  let pg := nth Fail pg in
-  let p := pg i in
+Definition step (sps : seq SMC) (A : Type) (ps : seq proc)
+  (trace : seq data)
+  (yes no : (proc * seq data -> A)) (i : nat) : A :=
+  let ps := nth Fail ps in
+  let p := ps i in
   let nop := no (p, trace) in
-  let '(sa, sb, ra, yb) := nth (0, 0, 0, 0) rs i in
+  let '(sp) := nth (fun a _ => a) sps i in
   match p with
   | ScalarProduct id1 id2 x1 f1 =>
-      match pg id2 with
+      match ps id2 with
       |  ScalarProduct id2 id1 x2 f2 =>
            if (id1, id2) == (alice, bob) then
-                yes (f1 (aresult (Option.bind fst (scalar_product sa sb ra yb x1 x2))), trace)
+                yes (f1 (sp x1 x2), trace)
            else
              if (id1, id2) == (bob, alice) then
-                yes (f2 (bresult (Option.bind snd (scalar_product sa sb ra yb x1 x2))), trace)
+                yes (f2 (sp x2 x1), trace)
              else
                nop
       | _ => nop
       end
   | Init d next =>
-      yes (next, trace)
-  | Ret d =>
-      yes (Finish, trace)
+      yes (next, d :: trace)
   | Finish | Fail =>
       nop
   end.
 
+End smc_def.
 
-End znto_prog.
+Arguments Finish {data}.
+Arguments Fail {data}.
+
+Section znto_program.
+  
+Variable n m : nat.
+Let TX := [the finComRingType of 'I_m.+2].
+Let VX := 'rV[TX]_n.
+
+Definition data := (VX + (TX * TX))%type.
+Definition inp x : data := inl x.
+Definition out x : data := inr x.
+
+Definition pgalice (xa : VX) :=
+  Init (inp xa) (
+  ScalarProduct alice bob (inp xa) (fun y =>
+  ScalarProduct alice bob (inp (xa + xa)) (fun z => (* Don't know how to make a 'rV[TX]_n like [:: y; y+y ] *)
+  Finish))).
+
+Let results (trs :  smc_scalar_product_party_tracesT VX) :=
+  let ya := if Option.bind fst trs is Some (inl ya, _, _, _, _, _)
+                   then ya else 0 in
+  let yb := if Option.bind snd trs is Some (inl yb, _, _, _, _, _)
+                   then yb else 0 in
+  out (ya, yb).
+
+Let sp sa sb ra yb (xa xb : data) :=
+      let xa_ := if xa is inl xa then xa else 0 in
+      let xb_ := if xb is inl xb then xb else 0 in
+      results (traces (@smc_scalar_product TX VX smc_entropy_proofs.dotproduct sa sb ra yb xa_ xb_ 11).2).
+
+Variable (rs : seq (VX * VX * TX * TX)).
+
+Let sps := map (fun r => let '(sa, sb, ra, yb) := r in
+  sp sa sb ra yb) rs.
+
+Check interp 11 (step sps).
+
+End znto_program.
