@@ -55,10 +55,10 @@ Definition step (sps : seq SMC) (A : Type) (ps : seq proc)
       match ps id2 with
       |  ScalarProduct id2 id1 x2 f2 =>
            if (id1, id2) == (alice, bob) then
-                yes (f1 (sp x1 x2), trace)
+                yes (f1 (sp x1 x2), sp x1 x2 :: trace)
            else
              if (id1, id2) == (bob, alice) then
-                yes (f2 (sp x2 x1), trace)
+                yes (f2 (sp x2 x1), sp x2 x1 :: trace)
              else
                nop
       | _ => nop
@@ -84,7 +84,7 @@ Definition data := (VX + (TX * TX))%type.
 Definition inp x : data := inl x.
 Definition out x : data := inr x.
 
-Definition pgalice (xa : VX) :=
+Definition palice (xa : VX) :=
   Init (inp xa) (
   ScalarProduct alice bob (inp xa) (fun y =>
   ScalarProduct alice bob (inp (xa + xa)) (fun z => (* Don't know how to make a 'rV[TX]_n like [:: y; y+y ] *)
@@ -107,6 +107,37 @@ Variable (rs : seq (VX * VX * TX * TX)).
 Let sps := map (fun r => let '(sa, sb, ra, yb) := r in
   sp sa sb ra yb) rs.
 
-Check interp 11 (step sps).
+Fixpoint interp h (ps : seq (proc data)) (traces : seq (seq data)) :=
+  if h is h.+1 then
+    if has (fun i => step sps ps [::] (fun=>true) (fun=>false) i)
+        (iota 0 (size ps)) then
+      let ps_trs' := [seq step sps ps (nth [::] traces i) idfun idfun i
+                     | i <- iota 0 (size ps)] in
+      let ps' := unzip1 ps_trs' in
+      let trs' := unzip2 ps_trs' in
+        interp h ps' trs'
+    else (ps, traces)
+  else (ps, traces).
+
+Variable (xa : VX).
+Let smc_program := interp 11 [:: palice xa] [::[::]].
+
+Goal smc_program.2 = [::].
+cbv -[GRing.add GRing.opp GRing.Ring.sort].
+Undo 1.
+rewrite /smc_program.
+rewrite (lock (11 : nat)) /=.
+rewrite -lock (lock (10 : nat)) /=.
+rewrite -lock (lock (9 : nat)) /=.
+rewrite -lock (lock (8 : nat)) /=.
+rewrite -lock (lock (7 : nat)) /=.
+rewrite -lock (lock (6 : nat)) /=.
+rewrite -lock (lock (5 : nat)) /=.
+rewrite -lock (lock (4 : nat)) /=.
+rewrite -lock (lock (3 : nat)) /=.
+rewrite -lock (lock (2 : nat)) /=.
+rewrite -lock (lock (1 : nat)) /=.
+rewrite -lock (lock (0 : nat)) /=.
+Abort.
 
 End znto_program.
