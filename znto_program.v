@@ -87,7 +87,13 @@ Definition out x : data := inr x.
 Definition palice (xa : VX) :=
   Init (inp xa) (
   ScalarProduct alice bob (inp xa) (fun y =>
-  ScalarProduct alice bob (inp (xa + xa)) (fun z => (* Don't know how to make a 'rV[TX]_n like [:: y; y+y ] *)
+  ScalarProduct alice bob (inp (xa+xa)) (fun y =>
+  Finish))).
+
+Definition pbob (xb : VX) :=
+  Init (inp xb) (
+  ScalarProduct bob alice (inp xb) (fun y =>
+  ScalarProduct bob alice (inp (xb+xb)) (fun y =>
   Finish))).
 
 Let results (trs :  smc_scalar_product_party_tracesT VX) :=
@@ -119,25 +125,19 @@ Fixpoint interp h (ps : seq (proc data)) (traces : seq (seq data)) :=
     else (ps, traces)
   else (ps, traces).
 
-Variable (xa : VX).
-Let smc_program := interp 11 [:: palice xa] [::[::]].
+Variable (xa xb : VX).
+Let smc_program := interp 11 [:: palice xa; pbob xb] [::[::]].
 
 Goal smc_program.2 = [::].
-cbv -[GRing.add GRing.opp GRing.Ring.sort].
+(*cbv -[GRing.add GRing.opp GRing.Ring.sort].
 Undo 1.
+*)
 rewrite /smc_program.
 rewrite (lock (11 : nat)) /=.
 rewrite -lock (lock (10 : nat)) /=.
 rewrite -lock (lock (9 : nat)) /=.
 rewrite -lock (lock (8 : nat)) /=.
 rewrite -lock (lock (7 : nat)) /=.
-rewrite -lock (lock (6 : nat)) /=.
-rewrite -lock (lock (5 : nat)) /=.
-rewrite -lock (lock (4 : nat)) /=.
-rewrite -lock (lock (3 : nat)) /=.
-rewrite -lock (lock (2 : nat)) /=.
-rewrite -lock (lock (1 : nat)) /=.
-rewrite -lock (lock (0 : nat)) /=.
 Abort.
 
 End znto_program.
